@@ -104,9 +104,10 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
 /* 0–10 color scale legend */
 .legend.scale { gap: 0; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
 .legend.scale .step {
-  width: 26px; text-align: center; font-size: 12px; font-weight: 600;
+  width: 22px; text-align: center; font-size: 12px; font-weight: 600;
   padding: 3px 0; font-variant-numeric: tabular-nums;
 }
+.legend.scale .step.half { width: 8px; }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }

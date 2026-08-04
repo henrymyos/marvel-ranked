@@ -11,7 +11,8 @@ const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2).replace(/0$/, "").repl
 
 // One distinct color per rating value — a multi-hue scale rather than a
 // plain red→green gradient: dark red at the bottom, through orange and
-// yellow, into greens, with teal at 9 and blue reserved for perfect 10s.
+// yellow, into greens, with blue at 9 and purple reserved for perfect 10s
+// so the top tiers stand apart from the merely-good greens.
 // Fills are the same in both themes; ink is chosen per step for contrast.
 const RATING_COLORS = [
   { bg: "#7f1d1d", ink: "#ffffff" }, // 0  dark red
@@ -23,12 +24,26 @@ const RATING_COLORS = [
   { bg: "#c9c353", ink: "#1a1a19" }, // 6  yellow-green
   { bg: "#8fba55", ink: "#1a1a19" }, // 7  light green
   { bg: "#3f9e4d", ink: "#ffffff" }, // 8  green
-  { bg: "#1b9e89", ink: "#ffffff" }, // 9  teal
-  { bg: "#2a78d6", ink: "#ffffff" }, // 10 blue
+  { bg: "#2a78d6", ink: "#ffffff" }, // 9  blue
+  { bg: "#8338ec", ink: "#ffffff" }, // 10 purple
 ];
 
+// Fractional ratings (phase/franchise averages) blend between the two
+// nearest stops instead of snapping to a whole-number color.
+function mixHex(a, b, t) {
+  const ch = (hex, i) => parseInt(hex.slice(i, i + 2), 16);
+  const lerp = (x, y) => Math.round(x + (y - x) * t).toString(16).padStart(2, "0");
+  return `#${lerp(ch(a, 1), ch(b, 1))}${lerp(ch(a, 3), ch(b, 3))}${lerp(ch(a, 5), ch(b, 5))}`;
+}
+
 function ratingColor(rating) {
-  return RATING_COLORS[Math.max(0, Math.min(10, Math.round(Number(rating))))];
+  const r = Math.max(0, Math.min(10, Number(rating)));
+  const lo = Math.floor(r), hi = Math.ceil(r), t = r - lo;
+  if (lo === hi) return RATING_COLORS[lo];
+  return {
+    bg: mixHex(RATING_COLORS[lo].bg, RATING_COLORS[hi].bg, t),
+    ink: RATING_COLORS[t < 0.5 ? lo : hi].ink,
+  };
 }
 
 function meterRow({ rank, title, rating, tag }) {
@@ -43,8 +58,12 @@ function meterRow({ rank, title, rating, tag }) {
 }
 
 const TIER_LEGEND = `<div class="legend scale">
-  ${RATING_COLORS.map((c, i) =>
-    `<span class="step" style="background:${c.bg};color:${c.ink}">${i}</span>`).join("")}
+  ${Array.from({ length: 21 }, (_, i) => {
+    const c = ratingColor(i / 2);
+    return i % 2 === 0
+      ? `<span class="step" style="background:${c.bg};color:${c.ink}">${i / 2}</span>`
+      : `<span class="step half" style="background:${c.bg}"></span>`;
+  }).join("")}
 </div>`;
 
 let sortMode = "rank";
