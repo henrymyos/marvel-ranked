@@ -9,23 +9,23 @@ const shows = SHOWS.map((s, i) => ({ ...s, type: "show", release: i + 1, rank: s
 const avg = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2).replace(/0$/, "").replace(/\.0$/, "");
 
-// One distinct color per rating value — a multi-hue scale rather than a
-// plain red→green gradient: dark red at the bottom, through orange and
-// yellow, into greens, with blue at 9 and purple reserved for perfect 10s
-// so the top tiers stand apart from the merely-good greens.
+// One distinct color per rating value. Reds and greens are compressed to
+// one or two steps each so the cool colors get room: teal at 7, blue at 8,
+// purple at 9, and pink reserved for perfect 10s — every tier boundary is
+// a clear hue change rather than a subtle shade shift.
 // Fills are the same in both themes; ink is chosen per step for contrast.
 const RATING_COLORS = [
   { bg: "#7f1d1d", ink: "#ffffff" }, // 0  dark red
-  { bg: "#c62f2f", ink: "#ffffff" }, // 1  red
-  { bg: "#e2574b", ink: "#ffffff" }, // 2  red-orange
-  { bg: "#ef8146", ink: "#1a1a19" }, // 3  orange
-  { bg: "#f5a94f", ink: "#1a1a19" }, // 4  amber
-  { bg: "#f9cb5f", ink: "#1a1a19" }, // 5  yellow
-  { bg: "#c9c353", ink: "#1a1a19" }, // 6  yellow-green
-  { bg: "#8fba55", ink: "#1a1a19" }, // 7  light green
-  { bg: "#3f9e4d", ink: "#ffffff" }, // 8  green
-  { bg: "#2a78d6", ink: "#ffffff" }, // 9  blue
-  { bg: "#8338ec", ink: "#ffffff" }, // 10 purple
+  { bg: "#cf3535", ink: "#ffffff" }, // 1  red
+  { bg: "#ef8146", ink: "#1a1a19" }, // 2  orange
+  { bg: "#f5a94f", ink: "#1a1a19" }, // 3  amber
+  { bg: "#f9cb5f", ink: "#1a1a19" }, // 4  yellow
+  { bg: "#c9c353", ink: "#1a1a19" }, // 5  yellow-green
+  { bg: "#3f9e4d", ink: "#ffffff" }, // 6  green
+  { bg: "#1b9e89", ink: "#ffffff" }, // 7  teal
+  { bg: "#2a78d6", ink: "#ffffff" }, // 8  blue
+  { bg: "#8338ec", ink: "#ffffff" }, // 9  purple
+  { bg: "#dd3fa4", ink: "#ffffff" }, // 10 pink
 ];
 
 // Fractional ratings (phase/franchise averages) blend between the two
