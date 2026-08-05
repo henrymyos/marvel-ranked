@@ -124,7 +124,7 @@ function renderRankings() {
 // `groups` gives phase-labeled clusters; single-group charts label each column.
 function columnChart({ groups, max = 10, ticks = [0, 5, 10] }) {
   const pct = (v) => (v / max) * 100;
-  const bar = (c) => `<div class="colwrap" title="${c.tip}">
+  const bar = (c) => `<div class="colwrap" data-tip="${c.tip}">
     <div class="colbar">${c.v === 0 && c.noStub ? "" : `<i style="height:${c.v === 0 ? "3px" : pct(c.v) + "%"};background:${c.color}"></i>`}</div>
     ${c.label != null ? `<span class="xl">${c.label}</span>` : ""}
   </div>`;
@@ -314,9 +314,10 @@ function scatterChart(pairs) {
     <text class="tick" x="${L - 6}" y="${sy(t)}" text-anchor="end" dominant-baseline="middle">${t}</text>
     <text class="tick" x="${sx(t)}" y="${H - B + 14}" text-anchor="middle">${t}</text>`).join("");
   const dots = pairs.map((p) => `
-    <circle cx="${sx(p.imdb)}" cy="${sy(p.mine)}" r="5" fill="${ratingColor(p.mine).bg}">
-      <title>${p.title} — me ${p.mine}, IMDb ${p.imdb}</title>
-    </circle>`).join("");
+    <g data-tip="${p.title} — me ${p.mine}, IMDb ${p.imdb}">
+      <circle class="hit" cx="${sx(p.imdb)}" cy="${sy(p.mine)}" r="12" fill="transparent"/>
+      <circle cx="${sx(p.imdb)}" cy="${sy(p.mine)}" r="5" fill="${ratingColor(p.mine).bg}"/>
+    </g>`).join("");
   return `<svg class="vsscatter" viewBox="0 0 ${W} ${H}" role="img"
       aria-label="Scatter plot of my ratings against IMDb ratings">
     ${grid}
@@ -381,6 +382,31 @@ document.querySelector("nav.tabs").addEventListener("click", (e) => {
   document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("active", b === btn));
   views[btn.dataset.view]();
 });
+
+// One shared tooltip for every [data-tip] mark. pointerover covers both
+// mouse hover and touch taps (a tap fires pointerover before pointerdown);
+// tapping or hovering anything without a data-tip hides it again.
+const tooltip = document.createElement("div");
+tooltip.className = "tooltip";
+document.body.appendChild(tooltip);
+let tipFor = null;
+
+document.addEventListener("pointerover", (e) => {
+  const el = e.target.closest("[data-tip]");
+  if (el === tipFor) return;
+  tipFor = el;
+  if (!el) { tooltip.classList.remove("show"); return; }
+  tooltip.textContent = el.dataset.tip;
+  tooltip.classList.add("show");
+  const mark = el.querySelector("i") || el; // anchor to the bar fill, not the full column slot
+  const r = mark.getBoundingClientRect();
+  const x = Math.max(8, Math.min(r.left + r.width / 2 - tooltip.offsetWidth / 2,
+    window.innerWidth - tooltip.offsetWidth - 8));
+  const above = r.top - tooltip.offsetHeight - 8;
+  tooltip.style.left = `${x}px`;
+  tooltip.style.top = `${above >= 8 ? above : r.bottom + 8}px`;
+});
+window.addEventListener("scroll", () => { tipFor = null; tooltip.classList.remove("show"); }, true);
 
 $("#hero-bg").innerHTML = movies
   .map((m) => COVERS[m.title])
