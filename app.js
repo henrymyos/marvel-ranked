@@ -276,20 +276,31 @@ function vsRow(m) {
   </div>`;
 }
 
+const vsSorts = {
+  me: { note: "movies sorted by my rating", key: (m) => m.rating },
+  imdb: { note: "movies sorted by IMDb rating", key: (m) => IMDB[m.title].rating },
+  delta: { note: "movies sorted by disagreement with IMDb", key: (m) => Math.abs(m.rating - IMDB[m.title].rating) },
+};
+let vsSort = "imdb";
+
 function renderVsImdb() {
   const rated = movies.filter((m) => IMDB[m.title]);
-  const rows = [...rated].sort((a, b) =>
-    Math.abs(b.rating - IMDB[b.title].rating) - Math.abs(a.rating - IMDB[a.title].rating));
+  const { note, key } = vsSorts[vsSort];
+  const rows = [...rated].sort((a, b) => key(b) - key(a));
+  const head = (id, label) =>
+    `<span class="vscol${vsSort === id ? " active" : ""}" data-sort="${id}">${label}</span>`;
   $("#view").innerHTML = `
     <div class="panel vspanel">
-      <h2>Hot takes <span class="note">movies sorted by disagreement with IMDb</span></h2>
+      <h2>Hot takes <span class="note">${note}</span></h2>
       <div class="vsrow vshead">
-        <span class="title"></span><span>Me</span><span>IMDb</span><span>&Delta;</span>
+        <span class="title"></span>${head("me", "Me")}${head("imdb", "IMDb")}${head("delta", "&Delta;")}
       </div>
       ${rows.map(vsRow).join("")}
       <p class="fineprint">IMDb ratings snapshot ${IMDB_SNAPSHOT} — refresh with <code>scripts/fetch-imdb.mjs</code>.
       Shows are left out: IMDb doesn't rate individual seasons.</p>
     </div>`;
+  $("#view").querySelectorAll(".vshead .vscol").forEach((el) =>
+    el.addEventListener("click", () => { vsSort = el.dataset.sort; renderVsImdb(); }));
 }
 
 const views = { rankings: renderRankings, phases: renderPhases, imdb: renderVsImdb };

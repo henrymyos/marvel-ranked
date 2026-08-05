@@ -157,7 +157,7 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
 }
 .chart .glabel .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--phase); flex-shrink: 0; }
 
-/* vs IMDb: my rating and IMDb's side by side, biggest gaps first */
+/* vs IMDb: my rating and IMDb's side by side, sortable by column */
 .vspanel { max-width: 720px; margin: 0 auto; }
 .vsrow {
   display: grid; grid-template-columns: 1fr 48px 48px 48px;
@@ -175,6 +175,9 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
 .vsrow.vshead { color: var(--text-muted); font-size: 12px; }
 .vsrow.vshead span:not(.title) { text-align: center; }
 .vsrow.vshead span:last-child { text-align: right; padding-right: 2px; }
+.vshead .vscol { cursor: pointer; user-select: none; }
+.vshead .vscol:hover { color: var(--text-secondary); }
+.vshead .vscol.active { color: var(--text-primary); font-weight: 700; }
 .vsrow:hover .cell { filter: brightness(1.06); }
 .fineprint { margin-top: 14px; font-size: 12px; color: var(--text-muted); }
 
