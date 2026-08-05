@@ -149,11 +149,10 @@ document.querySelector("nav.tabs").addEventListener("click", (e) => {
   views[btn.dataset.view]();
 });
 
-$("#theme-toggle").addEventListener("click", () => {
-  const root = document.documentElement;
-  const dark = root.dataset.theme === "dark" ||
-    (!root.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
-  root.dataset.theme = dark ? "light" : "dark";
-});
+$("#hero-bg").innerHTML = movies
+  .map((m) => COVERS[m.title])
+  .filter(Boolean)
+  .map((src) => `<img src="${src}" alt="" loading="lazy">`)
+  .join("");
 
 renderRankings();
