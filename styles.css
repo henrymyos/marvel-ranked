@@ -130,10 +130,10 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
   border-left: 3px solid var(--phase);
 }
 .card img, .card .noimg {
-  width: 34px; aspect-ratio: 2 / 3; object-fit: cover; display: block;
+  width: 42px; aspect-ratio: 2 / 3; object-fit: cover; display: block;
   background: #1c1c24; flex-shrink: 0;
 }
-.card img.contain { object-fit: contain; padding: 4px; box-sizing: border-box; }
+.card img.contain { object-fit: contain; padding: 3px; box-sizing: border-box; }
 .card .noimg {
   display: flex; align-items: center; justify-content: center;
   font-size: 13px; font-weight: 700; color: #6b6b78; letter-spacing: 0.05em;
