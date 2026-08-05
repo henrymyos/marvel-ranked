@@ -9,21 +9,21 @@ const shows = SHOWS.map((s, i) => ({ ...s, type: "show", release: i + 1, rank: s
 const avg = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2).replace(/0$/, "").replace(/\.0$/, "");
 
-// One distinct color per rating value. Reds and greens are compressed to
-// one or two steps each so the cool colors get room: teal at 7, blue at 8,
-// purple at 9, and pink reserved for perfect 10s — every tier boundary is
-// a clear hue change rather than a subtle shade shift.
-// Fills are the same in both themes; ink is chosen per step for contrast.
+// One distinct color per rating value, warm to cool: reds and yellows for
+// the low end, bright green at 5, then a blue ladder — light blue 6,
+// blue 7, indigo 8 — with purple at 9 and pink reserved for perfect 10s.
+// Every tier boundary is a clear hue change rather than a subtle shade shift.
+// Ink is chosen per step for contrast.
 const RATING_COLORS = [
   { bg: "#7f1d1d", ink: "#ffffff" }, // 0  dark red
   { bg: "#cf3535", ink: "#ffffff" }, // 1  red
   { bg: "#ef8146", ink: "#1a1a19" }, // 2  orange
-  { bg: "#f5a94f", ink: "#1a1a19" }, // 3  amber
-  { bg: "#f9cb5f", ink: "#1a1a19" }, // 4  yellow
-  { bg: "#c9c353", ink: "#1a1a19" }, // 5  yellow-green
-  { bg: "#3f9e4d", ink: "#ffffff" }, // 6  green
-  { bg: "#1b9e89", ink: "#ffffff" }, // 7  teal
-  { bg: "#2a78d6", ink: "#ffffff" }, // 8  blue
+  { bg: "#f9cb5f", ink: "#1a1a19" }, // 3  yellow
+  { bg: "#c9c353", ink: "#1a1a19" }, // 4  yellow-green
+  { bg: "#3cbb54", ink: "#1a1a19" }, // 5  bright green
+  { bg: "#5aa7e6", ink: "#1a1a19" }, // 6  light blue
+  { bg: "#2a78d6", ink: "#ffffff" }, // 7  blue
+  { bg: "#5b50e0", ink: "#ffffff" }, // 8  indigo
   { bg: "#8338ec", ink: "#ffffff" }, // 9  purple
   { bg: "#dd3fa4", ink: "#ffffff" }, // 10 pink
 ];
