@@ -86,9 +86,13 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
 
-/* Rankings split: release-order list left, ranked lists right */
-.split { display: grid; grid-template-columns: minmax(320px, 2fr) 5fr; gap: 20px; align-items: start; }
-@media (max-width: 1100px) { .split { grid-template-columns: 1fr; } }
+/* Rankings split: two release-order columns left, two ranked columns right.
+   Narrow screens stack to one column with the ranked lists on top. */
+.split { display: grid; grid-template-columns: minmax(460px, 1fr) 1fr; gap: 20px; align-items: start; }
+@media (max-width: 1100px) {
+  .split { grid-template-columns: 1fr; }
+  .split .release-pane { order: 2; }
+}
 
 .phase-block { margin-top: 14px; }
 .phase-block h3 {
@@ -97,7 +101,8 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
   padding-top: 10px; border-top: 2px solid var(--phase);
 }
 .phase-block h3 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--phase); }
-.covers { display: flex; flex-direction: column; gap: 6px; }
+.covers { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+@media (max-width: 600px) { .covers { grid-template-columns: 1fr; } }
 .card {
   background: var(--track); border: 1px solid var(--border); border-radius: 8px;
   overflow: hidden; display: flex; align-items: center; gap: 10px;
