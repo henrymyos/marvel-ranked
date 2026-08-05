@@ -66,6 +66,35 @@ const TIER_LEGEND = `<div class="legend scale">
   }).join("")}
 </div>`;
 
+// Accent color per phase, used to separate the release-order gallery.
+const PHASE_COLORS = {
+  1: "#e05252", 2: "#ef9f43", 3: "#e7c94c",
+  4: "#2fa9a0", 5: "#4a86e8", 6: "#a05ce8",
+};
+
+function coverCard(item) {
+  const src = COVERS[item.title];
+  const media = src
+    ? `<img src="${src}" alt="" loading="lazy" class="${src.includes("logo") ? "contain" : ""}">`
+    : `<span class="noimg">${item.title.replace(/[^A-Z]/g, "").slice(0, 3) || item.title[0]}</span>`;
+  return `<div class="card" style="--phase:${PHASE_COLORS[item.phase]}" title="${item.title} — ${item.rating}/10">
+    ${media}
+    <span class="name">${item.title}</span>
+  </div>`;
+}
+
+function releaseGallery(items, heading) {
+  const phases = [...new Set(items.map((i) => i.phase))];
+  return `<div class="panel">
+    <h2>${heading} <span class="note">release order</span></h2>
+    ${phases.map((p) => `
+      <section class="phase-block">
+        <h3 style="--phase:${PHASE_COLORS[p]}"><span class="dot"></span>Phase ${p}</h3>
+        <div class="covers">${items.filter((i) => i.phase === p).map(coverCard).join("")}</div>
+      </section>`).join("")}
+  </div>`;
+}
+
 let sortMode = "rank";
 
 function sorted(list) {
@@ -78,20 +107,29 @@ function sorted(list) {
 function renderRankings() {
   const rankOf = (item, i) => (sortMode === "rank" ? item.rank : item.rank ?? "–");
   $("#view").innerHTML = `
-    <div class="controls">
-      <div class="seg" id="sort-seg">
-        <button data-sort="rank" class="${sortMode === "rank" ? "active" : ""}">Best first</button>
-        <button data-sort="release" class="${sortMode === "release" ? "active" : ""}">Release order</button>
-        <button data-sort="alpha" class="${sortMode === "alpha" ? "active" : ""}">A–Z</button>
+    <div class="split">
+      <div class="release-pane">
+        ${releaseGallery(movies, "Movies")}
+        <div class="section-gap"></div>
+        ${releaseGallery(shows, "Shows")}
       </div>
-      ${TIER_LEGEND}
-    </div>
-    <div class="grid-2">
-      <div class="panel"><h2>Movies <span class="note">${movies.length} ranked</span></h2>
-        ${sorted(movies).map((m) => meterRow({ ...m, rank: rankOf(m) })).join("")}
-      </div>
-      <div class="panel"><h2>Shows <span class="note">${shows.length} ranked</span></h2>
-        ${sorted(shows).map((s) => meterRow({ ...s, rank: rankOf(s) })).join("")}
+      <div class="rank-pane">
+        <div class="controls">
+          <div class="seg" id="sort-seg">
+            <button data-sort="rank" class="${sortMode === "rank" ? "active" : ""}">Best first</button>
+            <button data-sort="release" class="${sortMode === "release" ? "active" : ""}">Release order</button>
+            <button data-sort="alpha" class="${sortMode === "alpha" ? "active" : ""}">A–Z</button>
+          </div>
+          ${TIER_LEGEND}
+        </div>
+        <div class="grid-2">
+          <div class="panel"><h2>Movies <span class="note">${movies.length} ranked</span></h2>
+            ${sorted(movies).map((m) => meterRow({ ...m, rank: rankOf(m) })).join("")}
+          </div>
+          <div class="panel"><h2>Shows <span class="note">${shows.length} ranked</span></h2>
+            ${sorted(shows).map((s) => meterRow({ ...s, rank: rankOf(s) })).join("")}
+          </div>
+        </div>
       </div>
     </div>`;
   $("#sort-seg").addEventListener("click", (e) => {
