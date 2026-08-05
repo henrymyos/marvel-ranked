@@ -276,6 +276,60 @@ function vsRow(m) {
   </div>`;
 }
 
+// Pearson on the raw scores, Spearman on ranks (average ranks for ties).
+function pearson(xs, ys) {
+  const mx = avg(xs), my = avg(ys);
+  let sxy = 0, sxx = 0, syy = 0;
+  for (let i = 0; i < xs.length; i++) {
+    sxy += (xs[i] - mx) * (ys[i] - my);
+    sxx += (xs[i] - mx) ** 2;
+    syy += (ys[i] - my) ** 2;
+  }
+  return sxy / Math.sqrt(sxx * syy);
+}
+
+function toRanks(xs) {
+  const sorted = xs.map((v, i) => [v, i]).sort((a, b) => a[0] - b[0]);
+  const ranks = Array(xs.length);
+  for (let i = 0; i < sorted.length; ) {
+    let j = i;
+    while (j + 1 < sorted.length && sorted[j + 1][0] === sorted[i][0]) j++;
+    for (let k = i; k <= j; k++) ranks[sorted[k][1]] = (i + j) / 2 + 1;
+    i = j + 1;
+  }
+  return ranks;
+}
+
+// Scatter of my rating against IMDb's, both on the 0-10 scale so the
+// diagonal marks perfect agreement. Dot color repeats my rating (the
+// site-wide scale); position is the real encoding.
+function scatterChart(pairs) {
+  const W = 460, H = 430, L = 30, R = 14, T = 16, B = 34;
+  const sx = (v) => L + (v / 10) * (W - L - R);
+  const sy = (v) => H - B - (v / 10) * (H - T - B);
+  const ticks = [0, 2, 4, 6, 8, 10];
+  const grid = ticks.map((t) => `
+    <line class="grid" x1="${sx(0)}" y1="${sy(t)}" x2="${sx(10)}" y2="${sy(t)}"/>
+    <line class="grid" x1="${sx(t)}" y1="${sy(0)}" x2="${sx(t)}" y2="${sy(10)}"/>
+    <text class="tick" x="${L - 6}" y="${sy(t)}" text-anchor="end" dominant-baseline="middle">${t}</text>
+    <text class="tick" x="${sx(t)}" y="${H - B + 14}" text-anchor="middle">${t}</text>`).join("");
+  const dots = pairs.map((p) => `
+    <circle cx="${sx(p.imdb)}" cy="${sy(p.mine)}" r="5" fill="${ratingColor(p.mine).bg}">
+      <title>${p.title} — me ${p.mine}, IMDb ${p.imdb}</title>
+    </circle>`).join("");
+  return `<svg class="vsscatter" viewBox="0 0 ${W} ${H}" role="img"
+      aria-label="Scatter plot of my ratings against IMDb ratings">
+    ${grid}
+    <line class="diag" x1="${sx(0)}" y1="${sy(0)}" x2="${sx(10)}" y2="${sy(10)}"/>
+    <text class="hint" x="${sx(1.6)}" y="${sy(8.9)}">I liked it more</text>
+    <text class="hint" x="${sx(9.9)}" y="${sy(0.4)}" text-anchor="end">IMDb liked it more</text>
+    ${dots}
+    <text class="axis" x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">IMDb rating</text>
+    <text class="axis" x="12" y="${(T + H - B) / 2}" text-anchor="middle"
+      transform="rotate(-90 12 ${(T + H - B) / 2})">My rating</text>
+  </svg>`;
+}
+
 const vsSorts = {
   me: { note: "movies sorted by my rating", key: (m) => m.rating },
   imdb: { note: "movies sorted by IMDb rating", key: (m) => IMDB[m.title].rating },
@@ -285,12 +339,28 @@ let vsSort = "imdb";
 
 function renderVsImdb() {
   const rated = movies.filter((m) => IMDB[m.title]);
+  const pairs = rated.map((m) => ({ title: m.title, mine: m.rating, imdb: IMDB[m.title].rating }));
+  const mine = pairs.map((p) => p.mine), theirs = pairs.map((p) => p.imdb);
+  const r = pearson(mine, theirs);
+  const rho = pearson(toRanks(mine), toRanks(theirs));
+  const gap = avg(theirs) - avg(mine);
+  const tiles = [
+    { label: "Correlation", value: r.toFixed(2), sub: `Pearson r · ${pairs.length} movies` },
+    { label: "Rank agreement", value: rho.toFixed(2), sub: "Spearman ρ" },
+    { label: "Tougher grader", value: `−${fmt(gap)}`, sub: `my avg ${fmt(avg(mine))} vs IMDb ${fmt(avg(theirs))}` },
+  ];
+
   const { note, key } = vsSorts[vsSort];
   const rows = [...rated].sort((a, b) => key(b) - key(a));
   const head = (id, label) =>
     `<span class="vscol${vsSort === id ? " active" : ""}" data-sort="${id}">${label}</span>`;
   $("#view").innerHTML = `
+    <div class="tiles vstiles">${tiles.map(statTile).join("")}</div>
     <div class="panel vspanel">
+      <h2>Me vs the crowd <span class="note">each dot is a movie · the line is perfect agreement</span></h2>
+      ${scatterChart(pairs)}
+    </div>
+    <div class="panel vspanel section-gap">
       <h2>Hot takes <span class="note">${note}</span></h2>
       <div class="vsrow vshead">
         <span class="title"></span>${head("me", "Me")}${head("imdb", "IMDb")}${head("delta", "&Delta;")}
