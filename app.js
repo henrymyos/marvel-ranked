@@ -76,10 +76,12 @@ function coverCard(item) {
   const src = COVERS[item.title];
   const media = src
     ? `<img src="${src}" alt="" loading="lazy" class="${src.includes("logo") ? "contain" : ""}">`
-    : `<span class="noimg">${item.title.replace(/[^A-Z]/g, "").slice(0, 3) || item.title[0]}</span>`;
+    : `<span class="noimg">${item.title.replace(/[^A-Z]/g, "").slice(0, 2) || item.title[0]}</span>`;
+  const c = ratingColor(item.rating);
   return `<div class="card" style="--phase:${PHASE_COLORS[item.phase]}" title="${item.title} — ${item.rating}/10">
     ${media}
     <span class="name">${item.title}</span>
+    <span class="score" style="background:${c.bg};color:${c.ink}">${item.rating}</span>
   </div>`;
 }
 
