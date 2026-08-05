@@ -105,6 +105,11 @@ function renderRankings() {
           </div>
           <div class="panel"><h2>Shows <span class="note">${shows.length} ranked</span></h2>
             ${byRank(shows).map(meterRow).join("")}
+            <h2 class="unwatched-heading">Haven't seen <span class="note">${UNWATCHED_SHOWS.length} shows</span></h2>
+            ${UNWATCHED_SHOWS.map((t) => `<div class="row">
+              <span class="rank">–</span>
+              <span class="cellbox unwatched"><span class="title">${t}</span></span>
+            </div>`).join("")}
           </div>
         </div>
       </div>

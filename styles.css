@@ -76,6 +76,13 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
 .row .cellbox .val { font-variant-numeric: tabular-nums; font-weight: 700; }
 .row:hover .cellbox { filter: brightness(1.06); }
 
+/* Shows not yet watched: muted rows below the ranked list */
+.unwatched-heading { margin-top: 18px; }
+.row .cellbox.unwatched {
+  background: var(--track); color: var(--text-secondary);
+  border: 1px dashed var(--baseline);
+}
+
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
 
