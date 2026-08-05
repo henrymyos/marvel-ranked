@@ -83,14 +83,15 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
   border: 1px dashed var(--baseline);
 }
 
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-@media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
+/* minmax(0, …) lets tracks shrink below the nowrap titles' intrinsic width */
+.grid-2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+@media (max-width: 800px) { .grid-2 { grid-template-columns: minmax(0, 1fr); } }
 
 /* Rankings split: two release-order columns left, two ranked columns right.
    Narrow screens stack to one column with the ranked lists on top. */
-.split { display: grid; grid-template-columns: minmax(460px, 1fr) 1fr; gap: 20px; align-items: start; }
+.split { display: grid; grid-template-columns: minmax(460px, 1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
 @media (max-width: 1100px) {
-  .split { grid-template-columns: 1fr; }
+  .split { grid-template-columns: minmax(0, 1fr); }
   .split .release-pane { order: 2; }
 }
 
@@ -266,3 +267,16 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
 .section-gap { margin-top: 16px; }
 footer { margin-top: 28px; font-size: 12px; color: var(--text-muted); }
 footer a { color: inherit; }
+
+/* Phones get the full width: slim page gutters, tighter panels and gaps.
+   Keep this block last so it wins over the base rules above. */
+@media (max-width: 700px) {
+  .wrap { padding: 10px 8px 48px; }
+  .panel { padding: 12px 10px; }
+  header.site { min-height: 130px; border-radius: 10px; }
+  nav.tabs { margin: 14px 0 12px; }
+  nav.tabs button { padding: 8px 10px; font-size: 13px; }
+  .split, .grid-2, .tiles { gap: 10px; }
+  .section-gap { margin-top: 10px; }
+  .vspanel, .vstiles, .vscharts { max-width: none; }
+}
