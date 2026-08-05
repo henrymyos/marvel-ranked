@@ -166,6 +166,15 @@ function statTile({ label, value, dotRating, sub }) {
   </div>`;
 }
 
+// Per-chart movies/shows/both pickers on the stats page.
+const statsFilter = { dist: "both", year: "both" };
+const filterSets = { movies: () => movies, shows: () => shows, both: () => [...movies, ...shows] };
+
+function segControl(chart) {
+  return `<span class="seg">${Object.keys(filterSets).map((p) =>
+    `<button class="segbtn${statsFilter[chart] === p ? " active" : ""}" data-chart="${chart}" data-pick="${p}">${p}</button>`).join("")}</span>`;
+}
+
 function renderStats() {
   const all = [...movies, ...shows];
   const groupStats = (items, key) => [...new Set(items.map((i) => i[key]))].map((k) => {
@@ -189,7 +198,8 @@ function renderStats() {
   ];
 
   // Rating distribution: how many titles landed on each 0-10 score.
-  const counts = Array.from({ length: 11 }, (_, r) => all.filter((i) => i.rating === r).length);
+  const distItems = filterSets[statsFilter.dist]();
+  const counts = Array.from({ length: 11 }, (_, r) => distItems.filter((i) => i.rating === r).length);
   const maxCount = Math.max(...counts);
   const histogram = columnChart({
     max: maxCount,
@@ -204,13 +214,14 @@ function renderStats() {
 
   // Average rating for everything watched, per release year (gap years stay
   // as empty slots so the time axis stays linear).
-  const years = all.map((i) => i.year);
+  const yearItems = filterSets[statsFilter.year]();
+  const years = yearItems.map((i) => i.year);
   const yearRange = [];
   for (let y = Math.min(...years); y <= Math.max(...years); y++) yearRange.push(y);
   const yearChart = columnChart({
     groups: [{
       cols: yearRange.map((y) => {
-        const xs = all.filter((i) => i.year === y);
+        const xs = yearItems.filter((i) => i.year === y);
         if (!xs.length) return { v: 0, noStub: true, label: `’${String(y).slice(2)}`, tip: `${y} — nothing released` };
         const a = avg(xs.map((i) => i.rating));
         return {
@@ -229,8 +240,8 @@ function renderStats() {
       ${timelineChart(shows)}
     </div>
     <div class="grid-2 section-gap">
-      <div class="panel"><h2>Rating distribution <span class="note">movies + shows</span></h2>${histogram}</div>
-      <div class="panel"><h2>Average by year <span class="note">movies + shows</span></h2>${yearChart}</div>
+      <div class="panel"><h2>Rating distribution ${segControl("dist")}</h2>${histogram}</div>
+      <div class="panel"><h2>Average by year ${segControl("year")}</h2>${yearChart}</div>
     </div>
     <div class="section-gap"></div>`;
 }
@@ -261,6 +272,8 @@ function renderPhases() {
         ${franchises.map((f) => meterRow({ rank: "", title: f.name, rating: fmt(f.average), tag: f.ratings.join(" · ") })).join("")}
       </div>
     </div>`;
+  $("#view").querySelectorAll(".segbtn").forEach((b) =>
+    b.addEventListener("click", () => { statsFilter[b.dataset.chart] = b.dataset.pick; renderPhases(); }));
 }
 
 function vsRow(m) {
