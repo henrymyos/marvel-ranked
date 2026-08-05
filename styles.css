@@ -76,8 +76,8 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
 .row .cellbox .val { font-variant-numeric: tabular-nums; font-weight: 700; }
 .row:hover .cellbox { filter: brightness(1.06); }
 
-/* Shows not yet watched: muted rows below the ranked list */
-.unwatched-heading { margin-top: 18px; }
+/* Second heading within a panel (unwatched shows, show phase averages) */
+.subheading { margin-top: 18px; }
 .row .cellbox.unwatched {
   background: var(--track); color: var(--text-secondary);
   border: 1px dashed var(--baseline);

@@ -105,7 +105,7 @@ function renderRankings() {
           </div>
           <div class="panel"><h2>Shows <span class="note">${shows.length} ranked</span></h2>
             ${byRank(shows).map(meterRow).join("")}
-            <h2 class="unwatched-heading">Haven't seen <span class="note">${UNWATCHED_SHOWS.length} shows</span></h2>
+            <h2 class="subheading">Haven't seen <span class="note">${UNWATCHED_SHOWS.length} shows</span></h2>
             ${UNWATCHED_SHOWS.map((t) => `<div class="row">
               <span class="rank">–</span>
               <span class="cellbox unwatched"><span class="title">${t}</span></span>
@@ -119,17 +119,26 @@ function renderRankings() {
     </div>`;
 }
 
+function phaseAverages(items, unit) {
+  return [1, 2, 3, 4, 5, 6]
+    .map((p) => {
+      const xs = items.filter((i) => i.phase === p);
+      return { name: `Phase ${p}`, average: avg(xs.map((i) => i.rating)), count: xs.length };
+    })
+    .filter((p) => p.count > 0)
+    .map((p) => meterRow({ rank: "", title: p.name, rating: fmt(p.average), tag: `${p.count} ${unit}` }))
+    .join("");
+}
+
 function renderPhases() {
-  const phases = [1, 2, 3, 4, 5, 6].map((p) => {
-    const ms = movies.filter((m) => m.phase === p);
-    return { name: `Phase ${p}`, average: avg(ms.map((m) => m.rating)), count: ms.length };
-  });
   const franchises = FRANCHISES.map((f) => ({ ...f, average: avg(f.ratings) }))
     .sort((a, b) => b.average - a.average);
   $("#view").innerHTML = `
     <div class="grid-2">
-      <div class="panel"><h2>Phase averages <span class="note">movies only</span></h2>
-        ${phases.map((p) => meterRow({ rank: "", title: p.name, rating: fmt(p.average), tag: `${p.count} films` })).join("")}
+      <div class="panel"><h2>Phase averages <span class="note">movies</span></h2>
+        ${phaseAverages(movies, "films")}
+        <h2 class="subheading">Phase averages <span class="note">shows</span></h2>
+        ${phaseAverages(shows, "shows")}
       </div>
       <div class="panel"><h2>Franchise averages</h2>
         ${franchises.map((f) => meterRow({ rank: "", title: f.name, rating: fmt(f.average), tag: f.ratings.join(" · ") })).join("")}
