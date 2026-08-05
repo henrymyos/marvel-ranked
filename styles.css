@@ -122,6 +122,41 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
 }
 .card:hover { filter: brightness(1.06); }
 
+/* Stat tiles */
+.tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 16px; }
+@media (max-width: 1100px) { .tiles { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+.tile .label { font-size: 12px; color: var(--text-muted); }
+.tile .value { font-size: 26px; font-weight: 600; line-height: 1.25; margin: 2px 0; }
+.tile .sub { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
+.tile .sub .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
+/* Column charts: height carries the rating; color repeats the site scale */
+.chart { --h: 140px; display: flex; gap: 8px; margin-top: 6px; }
+.chart .yaxis { position: relative; width: 18px; height: var(--h); flex-shrink: 0; }
+.chart .yaxis span {
+  position: absolute; right: 0; transform: translateY(-50%);
+  font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums;
+}
+.chart .plotarea { position: relative; flex: 1; min-width: 0; }
+.chart .gridline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--grid); }
+.chart .gridline.baseline { border-top-color: var(--baseline); }
+.chart .cgroups { position: relative; display: flex; gap: 10px; }
+.chart .cgroup { min-width: 0; }
+.chart .cols { display: flex; gap: 2px; }
+.chart .colwrap { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.chart .colbar { height: var(--h); display: flex; align-items: flex-end; justify-content: center; }
+.chart .colbar i { display: block; width: 100%; max-width: 24px; border-radius: 4px 4px 0 0; }
+.chart .colwrap:hover i { filter: brightness(1.18); }
+.chart .xl { font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 4px; }
+.chart .glabel {
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  border-top: 2px solid var(--phase); margin-top: 6px; padding-top: 5px;
+  font-size: 10px; color: var(--text-muted); white-space: nowrap; overflow: hidden;
+}
+.chart .glabel .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--phase); flex-shrink: 0; }
+
 /* Chips */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {

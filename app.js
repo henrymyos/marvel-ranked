@@ -119,6 +119,122 @@ function renderRankings() {
     </div>`;
 }
 
+// Generic column chart: values are encoded by height; the rating color is a
+// redundant channel on top (same scale as every other cell on the site).
+// `groups` gives phase-labeled clusters; single-group charts label each column.
+function columnChart({ groups, max = 10, ticks = [0, 5, 10] }) {
+  const pct = (v) => (v / max) * 100;
+  const bar = (c) => `<div class="colwrap" title="${c.tip}">
+    <div class="colbar">${c.v === 0 && c.noStub ? "" : `<i style="height:${c.v === 0 ? "3px" : pct(c.v) + "%"};background:${c.color}"></i>`}</div>
+    ${c.label != null ? `<span class="xl">${c.label}</span>` : ""}
+  </div>`;
+  return `<div class="chart">
+    <div class="yaxis">${ticks.map((t) => `<span style="top:calc(var(--h) * ${1 - t / max})">${t}</span>`).join("")}</div>
+    <div class="plotarea">
+      ${ticks.map((t) => `<div class="gridline ${t === 0 ? "baseline" : ""}" style="top:calc(var(--h) * ${1 - t / max})"></div>`).join("")}
+      <div class="cgroups">${groups.map((g) => `
+        <div class="cgroup" style="flex:${g.cols.length};${g.color ? `--phase:${g.color}` : ""}">
+          <div class="cols">${g.cols.map(bar).join("")}</div>
+          ${g.label ? `<div class="glabel"><span class="dot"></span>${g.label}</div>` : ""}
+        </div>`).join("")}
+      </div>
+    </div>
+  </div>`;
+}
+
+function timelineChart(items) {
+  const phases = [...new Set(items.map((i) => i.phase))];
+  return columnChart({
+    groups: phases.map((p) => ({
+      label: `Phase ${p}`,
+      color: PHASE_COLORS[p],
+      cols: items.filter((i) => i.phase === p).map((i) => ({
+        v: i.rating,
+        color: ratingColor(i.rating).bg,
+        tip: `${i.title} (${i.year}) — ${i.rating}/10`,
+      })),
+    })),
+  });
+}
+
+function statTile({ label, value, dotRating, sub }) {
+  const dot = dotRating != null ? `<span class="dot" style="background:${ratingColor(dotRating).bg}"></span>` : "";
+  return `<div class="tile">
+    <div class="label">${label}</div>
+    <div class="value">${value}</div>
+    <div class="sub">${dot}${sub}</div>
+  </div>`;
+}
+
+function renderStats() {
+  const all = [...movies, ...shows];
+  const groupStats = (items, key) => [...new Set(items.map((i) => i[key]))].map((k) => {
+    const xs = items.filter((i) => i[key] === k);
+    return { key: k, average: avg(xs.map((i) => i.rating)), count: xs.length };
+  }).sort((a, b) => b.average - a.average);
+
+  const byPhase = groupStats(all, "phase");
+  const byYear = groupStats(all, "year");
+  const movieAvg = avg(movies.map((m) => m.rating));
+  const showAvg = avg(shows.map((s) => s.rating));
+  const bestPhase = byPhase[0], worstPhase = byPhase[byPhase.length - 1];
+  const bestYear = byYear[0], worstYear = byYear[byYear.length - 1];
+  const tiles = [
+    { label: "Movie average", value: fmt(movieAvg), dotRating: movieAvg, sub: `${movies.length} films` },
+    { label: "Show average", value: fmt(showAvg), dotRating: showAvg, sub: `${shows.length} shows` },
+    { label: "Best phase", value: `Phase ${bestPhase.key}`, dotRating: bestPhase.average, sub: `${fmt(bestPhase.average)} average` },
+    { label: "Worst phase", value: `Phase ${worstPhase.key}`, dotRating: worstPhase.average, sub: `${fmt(worstPhase.average)} average` },
+    { label: "Best year", value: bestYear.key, dotRating: bestYear.average, sub: `${fmt(bestYear.average)} average` },
+    { label: "Worst year", value: worstYear.key, dotRating: worstYear.average, sub: `${fmt(worstYear.average)} average` },
+  ];
+
+  // Rating distribution: how many titles landed on each 0-10 score.
+  const counts = Array.from({ length: 11 }, (_, r) => all.filter((i) => i.rating === r).length);
+  const maxCount = Math.max(...counts);
+  const histogram = columnChart({
+    max: maxCount,
+    ticks: [0, Math.ceil(maxCount / 2), maxCount],
+    groups: [{
+      cols: counts.map((n, r) => ({
+        v: n, noStub: true, label: r, color: RATING_COLORS[r].bg,
+        tip: `Rated ${r} — ${n} title${n === 1 ? "" : "s"}`,
+      })),
+    }],
+  });
+
+  // Average rating for everything watched, per release year (gap years stay
+  // as empty slots so the time axis stays linear).
+  const years = all.map((i) => i.year);
+  const yearRange = [];
+  for (let y = Math.min(...years); y <= Math.max(...years); y++) yearRange.push(y);
+  const yearChart = columnChart({
+    groups: [{
+      cols: yearRange.map((y) => {
+        const xs = all.filter((i) => i.year === y);
+        if (!xs.length) return { v: 0, noStub: true, label: `’${String(y).slice(2)}`, tip: `${y} — nothing released` };
+        const a = avg(xs.map((i) => i.rating));
+        return {
+          v: a, color: ratingColor(a).bg, label: `’${String(y).slice(2)}`,
+          tip: `${y} — ${fmt(a)} average · ${xs.length} title${xs.length === 1 ? "" : "s"}`,
+        };
+      }),
+    }],
+  });
+
+  return `
+    <div class="tiles">${tiles.map(statTile).join("")}</div>
+    <div class="panel"><h2>Ratings in release order <span class="note">movies</span></h2>
+      ${timelineChart(movies)}
+      <h2 class="subheading">Ratings in release order <span class="note">shows</span></h2>
+      ${timelineChart(shows)}
+    </div>
+    <div class="grid-2 section-gap">
+      <div class="panel"><h2>Rating distribution <span class="note">movies + shows</span></h2>${histogram}</div>
+      <div class="panel"><h2>Average by year <span class="note">movies + shows</span></h2>${yearChart}</div>
+    </div>
+    <div class="section-gap"></div>`;
+}
+
 function phaseAverages(items, unit) {
   return [1, 2, 3, 4, 5, 6]
     .map((p) => {
@@ -126,7 +242,7 @@ function phaseAverages(items, unit) {
       return { name: `Phase ${p}`, average: avg(xs.map((i) => i.rating)), count: xs.length };
     })
     .filter((p) => p.count > 0)
-    .map((p) => meterRow({ rank: "", title: p.name, rating: fmt(p.average), tag: `${p.count} ${unit}` }))
+    .map((p) => meterRow({ rank: "", title: p.name, rating: fmt(p.average), tag: `${p.count} ${p.count === 1 ? unit.replace(/s$/, "") : unit}` }))
     .join("");
 }
 
@@ -134,6 +250,7 @@ function renderPhases() {
   const franchises = FRANCHISES.map((f) => ({ ...f, average: avg(f.ratings) }))
     .sort((a, b) => b.average - a.average);
   $("#view").innerHTML = `
+    ${renderStats()}
     <div class="grid-2">
       <div class="panel"><h2>Phase averages <span class="note">movies</span></h2>
         ${phaseAverages(movies, "films")}
