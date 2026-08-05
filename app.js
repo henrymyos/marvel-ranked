@@ -9,6 +9,28 @@ const shows = SHOWS.map((s, i) => ({ ...s, type: "show", release: i + 1, rank: s
 const avg = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2).replace(/0$/, "").replace(/\.0$/, "");
 
+// Drag edits live in this browser only; data.js (the sheet) stays canonical.
+// Saved edits are applied on load only while the title set still matches the
+// sheet — a re-sync that adds or removes a title silently discards them.
+const EDITS_KEY = "marvelRankedEdits";
+
+(function loadEdits() {
+  let saved;
+  try { saved = JSON.parse(localStorage.getItem(EDITS_KEY)); } catch { return; }
+  if (!saved) return;
+  for (const [list, packed] of [[movies, saved.movies], [shows, saved.shows]]) {
+    if (!Array.isArray(packed) || packed.length !== list.length) continue;
+    const byTitle = new Map(list.map((i) => [i.title, i]));
+    if (!packed.every((e) => byTitle.has(e.t) && Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) continue;
+    packed.forEach((e, i) => { const it = byTitle.get(e.t); it.rating = e.r; it.rank = i + 1; });
+  }
+})();
+
+function saveEdits() {
+  const pack = (xs) => [...xs].sort((a, b) => a.rank - b.rank).map((i) => ({ t: i.title, r: i.rating }));
+  localStorage.setItem(EDITS_KEY, JSON.stringify({ movies: pack(movies), shows: pack(shows) }));
+}
+
 // One distinct color per rating value, warm to cool: reds and yellows for
 // the low end, bright green at 5, then a blue ladder — light blue 6,
 // blue 7, indigo 8 — with purple at 9 and pink reserved for perfect 10s.
@@ -90,7 +112,98 @@ function releaseGallery(items, heading) {
 
 const byRank = (list) => [...list].sort((a, b) => a.rank - b.rank);
 
+// The ranked lists are editable: every row (and every tier separator below
+// 10) carries a grip and can be dragged. An item's rating is the tier header
+// sitting above it, so dragging across a separator re-rates the item, and
+// dragging a separator re-rates everything that changes side.
+function rankRow(item) {
+  const c = ratingColor(item.rating);
+  return `<div class="row drag" data-drag data-title="${item.title}">
+    <span class="rank">${item.rank}</span>
+    <span class="cellbox" style="background:${c.bg};color:${c.ink}">
+      <span class="title">${item.title}</span>
+      <span class="val">${item.rating}</span>
+    </span>
+    <span class="grip" title="drag to move">⠿</span>
+  </div>`;
+}
+
+function tierRow(r) {
+  const fixed = r === 10;
+  return `<div class="tierrow${fixed ? " fixed" : ""}" ${fixed ? "" : "data-drag"} data-tier="${r}"
+    style="--c:${RATING_COLORS[r].bg}">
+    <span class="rank"></span>
+    <span class="tierline"><b>${r}</b></span>
+    <span class="grip"${fixed ? ` style="visibility:hidden"` : ` title="drag the tier boundary"`}>⠿</span>
+  </div>`;
+}
+
+function rankSeq(items) {
+  let out = "";
+  for (let r = 10; r >= 0; r--) {
+    out += tierRow(r);
+    out += byRank(items.filter((i) => i.rating === r)).map(rankRow).join("");
+  }
+  return out;
+}
+
+function avgChip(items) {
+  const a = avg(items.map((i) => i.rating));
+  return `<span class="avgchip${a === 5 ? "" : " off"}" title="average rating — the goal is exactly 5">avg ${fmt(a)}</span>`;
+}
+
+// Re-derive ratings and ranks from the DOM order after a drop, then re-render.
+function commitList(container, list) {
+  const byTitle = new Map(list.map((i) => [i.title, i]));
+  let cur = 10, rank = 1;
+  for (const el of container.children) {
+    if (el.dataset.tier !== undefined) cur = Number(el.dataset.tier);
+    else if (el.dataset.title !== undefined) {
+      const it = byTitle.get(el.dataset.title);
+      it.rating = cur;
+      it.rank = rank++;
+    }
+  }
+  saveEdits();
+  renderRankings();
+  updateBalanceAlert();
+}
+
+function makeDraggable(container, list) {
+  container.addEventListener("pointerdown", (e) => {
+    const grip = e.target.closest(".grip");
+    if (!grip || !container.contains(grip)) return;
+    const row = grip.closest("[data-drag]");
+    if (!row) return;
+    e.preventDefault();
+    try { grip.setPointerCapture(e.pointerId); } catch {}
+    row.classList.add("dragging");
+    const onMove = (ev) => {
+      // Insert before the first non-dragged row whose midpoint is below the
+      // pointer. The fixed 10-header is excluded, so nothing lands above it.
+      const candidates = [...container.children].filter((c) => c !== row && !c.classList.contains("fixed"));
+      const next = candidates.find((c) => {
+        const b = c.getBoundingClientRect();
+        return ev.clientY < b.top + b.height / 2;
+      }) ?? null;
+      if (next !== row.nextElementSibling) container.insertBefore(row, next);
+    };
+    const finish = (ev) => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      row.classList.remove("dragging");
+      if (ev.type === "pointerup") commitList(container, list);
+      else renderRankings();
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", finish);
+    window.addEventListener("pointercancel", finish);
+  });
+}
+
 function renderRankings() {
+  const edited = localStorage.getItem(EDITS_KEY) !== null;
   $("#view").innerHTML = `
     <div class="split">
       <div class="release-pane">
@@ -100,11 +213,11 @@ function renderRankings() {
       </div>
       <div class="rank-pane">
         <div class="grid-2">
-          <div class="panel"><h2>Movies <span class="note">${movies.length} ranked</span></h2>
-            ${byRank(movies).map(meterRow).join("")}
+          <div class="panel"><h2>Movies ${avgChip(movies)}<span class="note">${movies.length} ranked · drag to re-rank</span></h2>
+            <div class="ranklist" data-kind="movies">${rankSeq(movies)}</div>
           </div>
-          <div class="panel"><h2>Shows <span class="note">${shows.length} ranked</span></h2>
-            ${byRank(shows).map(meterRow).join("")}
+          <div class="panel"><h2>Shows ${avgChip(shows)}<span class="note">${shows.length} ranked</span></h2>
+            <div class="ranklist" data-kind="shows">${rankSeq(shows)}</div>
             <h2 class="subheading">Haven't seen <span class="note">${UNWATCHED_SHOWS.length} shows</span></h2>
             ${UNWATCHED_SHOWS.map((t) => `<div class="row">
               <span class="rank">–</span>
@@ -115,8 +228,17 @@ function renderRankings() {
         <div class="panel section-gap"><h2>Coming up <span class="note">announced movies &amp; shows</span></h2>
           <div class="chips">${UPCOMING.map((t) => `<span class="chip">${t}</span>`).join("")}</div>
         </div>
+        ${edited ? `<p class="fineprint">Rankings edited in this browser — the sheet is untouched.
+          <a href="#" id="reset-edits">Reset to sheet data</a>.</p>` : ""}
       </div>
     </div>`;
+  $("#view").querySelectorAll(".ranklist").forEach((el) =>
+    makeDraggable(el, el.dataset.kind === "movies" ? movies : shows));
+  $("#reset-edits")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    localStorage.removeItem(EDITS_KEY);
+    location.reload();
+  });
 }
 
 // Generic column chart: values are encoded by height; the rating color is a
@@ -468,19 +590,23 @@ window.addEventListener("scroll", () => { tipFor = null; tooltip.classList.remov
 // The rating scale is zero-sum by design: movie and show averages must both
 // stay at exactly 5. If an edit breaks that, flag it above every tab with the
 // exact number of points to give back or hand out.
-(function balanceCheck() {
+function updateBalanceAlert() {
   const issues = [["Movies", movies], ["Shows", shows]].flatMap(([label, xs]) => {
     const sum = xs.reduce((a, x) => a + x.rating, 0);
     const diff = sum - xs.length * 5;
     if (diff === 0) return [];
     return [`${label} average ${fmt(sum / xs.length)} — ${Math.abs(diff)} point${Math.abs(diff) === 1 ? "" : "s"} ${diff > 0 ? "over" : "under"}`];
   });
-  if (!issues.length) return;
-  const el = document.createElement("div");
-  el.className = "balance-alert";
+  let el = document.querySelector(".balance-alert");
+  if (!issues.length) { el?.remove(); return; }
+  if (!el) {
+    el = document.createElement("div");
+    el.className = "balance-alert";
+    document.querySelector("nav.tabs").after(el);
+  }
   el.innerHTML = `<strong>⚠ Averages off the 5.0 target</strong> ${issues.join(" · ")}`;
-  document.querySelector("nav.tabs").after(el);
-})();
+}
+updateBalanceAlert();
 
 $("#hero-bg").innerHTML = movies
   .map((m) => COVERS[m.title])

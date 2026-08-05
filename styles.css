@@ -130,6 +130,32 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
 }
 .card:hover { filter: brightness(1.06); }
 
+/* Editable ranked lists: grips, tier separators, drag state, live average */
+.row.drag { grid-template-columns: 30px 1fr 18px; }
+.grip {
+  cursor: grab; color: var(--text-muted); font-size: 12px; text-align: center;
+  user-select: none; -webkit-user-select: none; touch-action: none; padding: 3px 0;
+}
+.grip:hover { color: var(--text-primary); }
+.dragging { opacity: 0.92; }
+.row.dragging .cellbox { outline: 2px dashed rgba(255, 255, 255, 0.55); }
+.tierrow {
+  display: grid; grid-template-columns: 30px 1fr 18px; gap: 8px;
+  align-items: center; padding: 3px 0 1px;
+}
+.tierrow .tierline { display: flex; align-items: center; gap: 8px; }
+.tierrow .tierline b { font-size: 11px; color: var(--c); }
+.tierrow .tierline::before, .tierrow .tierline::after {
+  content: ""; height: 2px; border-radius: 1px; background: var(--c); opacity: 0.5; flex: 1;
+}
+.tierrow.dragging .tierline::before, .tierrow.dragging .tierline::after { opacity: 1; }
+.avgchip {
+  float: right; font-size: 12px; font-weight: 600; line-height: normal;
+  color: var(--text-muted); border: 1px solid var(--border);
+  border-radius: 999px; padding: 2px 10px;
+}
+.avgchip.off { color: #ff7a7a; border-color: #cf3535; }
+
 /* Stat tiles */
 .tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 16px; }
 @media (max-width: 1100px) { .tiles { grid-template-columns: repeat(3, 1fr); } }
