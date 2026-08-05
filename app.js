@@ -263,7 +263,36 @@ function renderPhases() {
     </div>`;
 }
 
-const views = { rankings: renderRankings, phases: renderPhases };
+function vsRow(m) {
+  const imdb = IMDB[m.title];
+  const mine = ratingColor(m.rating), theirs = ratingColor(imdb.rating);
+  const delta = m.rating - imdb.rating;
+  const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
+  return `<div class="vsrow" title="${m.title} — me ${m.rating}, IMDb ${imdb.rating} (${imdb.votes.toLocaleString()} votes)">
+    <span class="title">${m.title}</span>
+    <span class="cell" style="background:${mine.bg};color:${mine.ink}">${m.rating}</span>
+    <span class="cell" style="background:${theirs.bg};color:${theirs.ink}">${imdb.rating}</span>
+    <span class="delta">${sign}${fmt(Math.abs(delta))}</span>
+  </div>`;
+}
+
+function renderVsImdb() {
+  const rated = movies.filter((m) => IMDB[m.title]);
+  const rows = [...rated].sort((a, b) =>
+    Math.abs(b.rating - IMDB[b.title].rating) - Math.abs(a.rating - IMDB[a.title].rating));
+  $("#view").innerHTML = `
+    <div class="panel vspanel">
+      <h2>Hot takes <span class="note">movies sorted by disagreement with IMDb</span></h2>
+      <div class="vsrow vshead">
+        <span class="title"></span><span>Me</span><span>IMDb</span><span>&Delta;</span>
+      </div>
+      ${rows.map(vsRow).join("")}
+      <p class="fineprint">IMDb ratings snapshot ${IMDB_SNAPSHOT} — refresh with <code>scripts/fetch-imdb.mjs</code>.
+      Shows are left out: IMDb doesn't rate individual seasons.</p>
+    </div>`;
+}
+
+const views = { rankings: renderRankings, phases: renderPhases, imdb: renderVsImdb };
 
 document.querySelector("nav.tabs").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-view]");
