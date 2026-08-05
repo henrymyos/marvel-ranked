@@ -112,6 +112,9 @@ function renderRankings() {
             </div>`).join("")}
           </div>
         </div>
+        <div class="panel section-gap"><h2>Coming up <span class="note">announced movies &amp; shows</span></h2>
+          <div class="chips">${UPCOMING.map((t) => `<span class="chip">${t}</span>`).join("")}</div>
+        </div>
       </div>
     </div>`;
 }
