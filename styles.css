@@ -176,6 +176,7 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
 .vsrow.vshead span:not(.title) { text-align: center; }
 .vsrow.vshead span:last-child { text-align: right; padding-right: 2px; }
 .vstiles { grid-template-columns: repeat(3, 1fr); max-width: 720px; margin: 0 auto 16px; }
+.vscharts { max-width: 1100px; margin: 0 auto; }
 
 /* Me-vs-IMDb scatter: position carries both scores, dot color repeats mine */
 .vsscatter { display: block; width: 100%; height: auto; margin-top: 4px; }

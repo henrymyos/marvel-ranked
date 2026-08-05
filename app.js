@@ -303,7 +303,7 @@ function toRanks(xs) {
 // Scatter of my rating against IMDb's, both on the 0-10 scale so the
 // diagonal marks perfect agreement. Dot color repeats my rating (the
 // site-wide scale); position is the real encoding.
-function scatterChart(pairs) {
+function scatterChart(pairs, xLabel) {
   const W = 460, H = 430, L = 30, R = 14, T = 16, B = 34;
   const sx = (v) => L + (v / 10) * (W - L - R);
   const sy = (v) => H - B - (v / 10) * (H - T - B);
@@ -314,7 +314,7 @@ function scatterChart(pairs) {
     <text class="tick" x="${L - 6}" y="${sy(t)}" text-anchor="end" dominant-baseline="middle">${t}</text>
     <text class="tick" x="${sx(t)}" y="${H - B + 14}" text-anchor="middle">${t}</text>`).join("");
   const dots = pairs.map((p) => `
-    <g data-tip="${p.title} — me ${p.mine}, IMDb ${p.imdb}">
+    <g data-tip="${p.tip}">
       <circle class="hit" cx="${sx(p.imdb)}" cy="${sy(p.mine)}" r="12" fill="transparent"/>
       <circle cx="${sx(p.imdb)}" cy="${sy(p.mine)}" r="5" fill="${ratingColor(p.mine).bg}"/>
     </g>`).join("");
@@ -325,7 +325,7 @@ function scatterChart(pairs) {
     <text class="hint" x="${sx(1.6)}" y="${sy(8.9)}">I liked it more</text>
     <text class="hint" x="${sx(9.9)}" y="${sy(0.4)}" text-anchor="end">IMDb liked it more</text>
     ${dots}
-    <text class="axis" x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">IMDb rating</text>
+    <text class="axis" x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">${xLabel}</text>
     <text class="axis" x="12" y="${(T + H - B) / 2}" text-anchor="middle"
       transform="rotate(-90 12 ${(T + H - B) / 2})">My rating</text>
   </svg>`;
@@ -351,15 +351,31 @@ function renderVsImdb() {
     { label: "Tougher grader", value: `−${fmt(gap)}`, sub: `my avg ${fmt(avg(mine))} vs IMDb ${fmt(avg(theirs))}` },
   ];
 
+  // Stretch IMDb's compressed scale onto mine: their lowest-rated movie
+  // becomes a 0 and their highest a 10, everything else in proportion.
+  const lo = Math.min(...theirs), hi = Math.max(...theirs);
+  const adjust = (v) => ((v - lo) / (hi - lo)) * 10;
+  const rawPairs = pairs.map((p) => ({ ...p, tip: `${p.title} — me ${p.mine}, IMDb ${p.imdb}` }));
+  const adjPairs = pairs.map((p) => ({
+    ...p, imdb: adjust(p.imdb),
+    tip: `${p.title} — me ${p.mine}, IMDb ${p.imdb} → ${fmt(adjust(p.imdb))} adjusted`,
+  }));
+
   const { note, key } = vsSorts[vsSort];
   const rows = [...rated].sort((a, b) => key(b) - key(a));
   const head = (id, label) =>
     `<span class="vscol${vsSort === id ? " active" : ""}" data-sort="${id}">${label}</span>`;
   $("#view").innerHTML = `
     <div class="tiles vstiles">${tiles.map(statTile).join("")}</div>
-    <div class="panel vspanel">
-      <h2>Me vs the crowd <span class="note">each dot is a movie · the line is perfect agreement</span></h2>
-      ${scatterChart(pairs)}
+    <div class="grid-2 vscharts">
+      <div class="panel">
+        <h2>Me vs the crowd <span class="note">each dot is a movie · the line is perfect agreement</span></h2>
+        ${scatterChart(rawPairs, "IMDb rating")}
+      </div>
+      <div class="panel">
+        <h2>Adjusted to my scale <span class="note">IMDb stretched so its lowest is 0, highest 10</span></h2>
+        ${scatterChart(adjPairs, "IMDb rating, stretched to 0–10")}
+      </div>
     </div>
     <div class="panel vspanel section-gap">
       <h2>Hot takes <span class="note">${note}</span></h2>
