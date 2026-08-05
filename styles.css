@@ -58,18 +58,6 @@ nav.tabs button {
 nav.tabs button:hover { color: var(--text-primary); }
 nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--text-primary); font-weight: 600; }
 
-/* Controls */
-.controls { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; align-items: center; }
-.controls .seg { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.controls .seg button {
-  background: var(--surface); border: none; padding: 6px 12px; font-size: 13px;
-  color: var(--text-secondary); cursor: pointer;
-}
-.controls .seg button.active { background: var(--track); color: var(--text-primary); font-weight: 600; }
-.legend { display: flex; gap: 14px; margin-left: auto; font-size: 13px; color: var(--text-secondary); }
-.legend .key { display: inline-flex; align-items: center; gap: 6px; }
-.legend .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-
 /* Ranking rows — spreadsheet-style colored cells */
 .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 18px; }
 .panel h2 { font-size: 16px; margin-bottom: 12px; }
@@ -87,14 +75,6 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
 .row .cellbox .phase-tag { opacity: 0.75; font-size: 12px; margin-left: 6px; }
 .row .cellbox .val { font-variant-numeric: tabular-nums; font-weight: 700; }
 .row:hover .cellbox { filter: brightness(1.06); }
-
-/* 0–10 color scale legend */
-.legend.scale { gap: 0; border-radius: 6px; overflow: hidden; border: 1px solid var(--border); }
-.legend.scale .step {
-  width: 22px; text-align: center; font-size: 12px; font-weight: 600;
-  padding: 3px 0; font-variant-numeric: tabular-nums;
-}
-.legend.scale .step.half { width: 8px; }
 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 @media (max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }

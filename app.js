@@ -57,15 +57,6 @@ function meterRow({ rank, title, rating, tag }) {
   </div>`;
 }
 
-const TIER_LEGEND = `<div class="legend scale">
-  ${Array.from({ length: 21 }, (_, i) => {
-    const c = ratingColor(i / 2);
-    return i % 2 === 0
-      ? `<span class="step" style="background:${c.bg};color:${c.ink}">${i / 2}</span>`
-      : `<span class="step half" style="background:${c.bg}"></span>`;
-  }).join("")}
-</div>`;
-
 // Accent color per phase, used to separate the release-order gallery.
 const PHASE_COLORS = {
   1: "#e05252", 2: "#ef9f43", 3: "#e7c94c",
@@ -108,7 +99,6 @@ function renderRankings() {
         ${releaseGallery(shows, "Shows")}
       </div>
       <div class="rank-pane">
-        <div class="controls">${TIER_LEGEND}</div>
         <div class="grid-2">
           <div class="panel"><h2>Movies <span class="note">${movies.length} ranked</span></h2>
             ${byRank(movies).map(meterRow).join("")}
@@ -129,7 +119,6 @@ function renderPhases() {
   const franchises = FRANCHISES.map((f) => ({ ...f, average: avg(f.ratings) }))
     .sort((a, b) => b.average - a.average);
   $("#view").innerHTML = `
-    <div class="controls">${TIER_LEGEND}</div>
     <div class="grid-2">
       <div class="panel"><h2>Phase averages <span class="note">movies only</span></h2>
         ${phases.map((p) => meterRow({ rank: "", title: p.name, rating: fmt(p.average), tag: `${p.count} films` })).join("")}
