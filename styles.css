@@ -101,8 +101,11 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
   padding-top: 10px; border-top: 2px solid var(--phase);
 }
 .phase-block h3 .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--phase); }
-.covers { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-@media (max-width: 600px) { .covers { grid-template-columns: 1fr; } }
+/* Two columns filled top-to-bottom: first half of the phase runs down the
+   left column, the rest continues down the right. */
+.covers { columns: 2; column-gap: 6px; }
+.covers .card { break-inside: avoid; margin-bottom: 6px; }
+@media (max-width: 600px) { .covers { columns: 1; } }
 .card {
   background: var(--track); border: 1px solid var(--border); border-radius: 8px;
   overflow: hidden; display: flex; align-items: center; gap: 10px;
