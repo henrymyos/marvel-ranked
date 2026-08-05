@@ -97,17 +97,9 @@ function releaseGallery(items, heading) {
   </div>`;
 }
 
-let sortMode = "rank";
-
-function sorted(list) {
-  const copy = [...list];
-  if (sortMode === "rank") return copy.sort((a, b) => a.rank - b.rank);
-  if (sortMode === "release") return copy.sort((a, b) => a.release - b.release);
-  return copy.sort((a, b) => a.title.localeCompare(b.title));
-}
+const byRank = (list) => [...list].sort((a, b) => a.rank - b.rank);
 
 function renderRankings() {
-  const rankOf = (item, i) => (sortMode === "rank" ? item.rank : item.rank ?? "–");
   $("#view").innerHTML = `
     <div class="split">
       <div class="release-pane">
@@ -116,30 +108,17 @@ function renderRankings() {
         ${releaseGallery(shows, "Shows")}
       </div>
       <div class="rank-pane">
-        <div class="controls">
-          <div class="seg" id="sort-seg">
-            <button data-sort="rank" class="${sortMode === "rank" ? "active" : ""}">Best first</button>
-            <button data-sort="release" class="${sortMode === "release" ? "active" : ""}">Release order</button>
-            <button data-sort="alpha" class="${sortMode === "alpha" ? "active" : ""}">A–Z</button>
-          </div>
-          ${TIER_LEGEND}
-        </div>
+        <div class="controls">${TIER_LEGEND}</div>
         <div class="grid-2">
           <div class="panel"><h2>Movies <span class="note">${movies.length} ranked</span></h2>
-            ${sorted(movies).map((m) => meterRow({ ...m, rank: rankOf(m) })).join("")}
+            ${byRank(movies).map(meterRow).join("")}
           </div>
           <div class="panel"><h2>Shows <span class="note">${shows.length} ranked</span></h2>
-            ${sorted(shows).map((s) => meterRow({ ...s, rank: rankOf(s) })).join("")}
+            ${byRank(shows).map(meterRow).join("")}
           </div>
         </div>
       </div>
     </div>`;
-  $("#sort-seg").addEventListener("click", (e) => {
-    const btn = e.target.closest("button[data-sort]");
-    if (!btn) return;
-    sortMode = btn.dataset.sort;
-    renderRankings();
-  });
 }
 
 function renderPhases() {
