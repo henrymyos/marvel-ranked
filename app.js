@@ -437,6 +437,23 @@ document.addEventListener("pointerover", (e) => {
 });
 window.addEventListener("scroll", () => { tipFor = null; tooltip.classList.remove("show"); }, true);
 
+// The rating scale is zero-sum by design: movie and show averages must both
+// stay at exactly 5. If an edit breaks that, flag it above every tab with the
+// exact number of points to give back or hand out.
+(function balanceCheck() {
+  const issues = [["Movies", movies], ["Shows", shows]].flatMap(([label, xs]) => {
+    const sum = xs.reduce((a, x) => a + x.rating, 0);
+    const diff = sum - xs.length * 5;
+    if (diff === 0) return [];
+    return [`${label} average ${fmt(sum / xs.length)} — ${Math.abs(diff)} point${Math.abs(diff) === 1 ? "" : "s"} ${diff > 0 ? "over" : "under"}`];
+  });
+  if (!issues.length) return;
+  const el = document.createElement("div");
+  el.className = "balance-alert";
+  el.innerHTML = `<strong>⚠ Averages off the 5.0 target</strong> ${issues.join(" · ")}`;
+  document.querySelector("nav.tabs").after(el);
+})();
+
 $("#hero-bg").innerHTML = movies
   .map((m) => COVERS[m.title])
   .filter(Boolean)
