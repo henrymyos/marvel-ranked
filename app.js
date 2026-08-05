@@ -276,15 +276,15 @@ function renderPhases() {
     b.addEventListener("click", () => { statsFilter[b.dataset.chart] = b.dataset.pick; renderPhases(); }));
 }
 
-function vsRow(m) {
-  const imdb = IMDB[m.title];
-  const mine = ratingColor(m.rating), theirs = ratingColor(imdb.rating);
-  const delta = m.rating - imdb.rating;
+function vsRow(cfg, m) {
+  const theirs10 = cfg.score(m);
+  const mine = ratingColor(m.rating), theirs = ratingColor(theirs10);
+  const delta = m.rating - theirs10;
   const sign = delta > 0 ? "+" : delta < 0 ? "−" : "";
-  return `<div class="vsrow" title="${m.title} — me ${m.rating}, IMDb ${imdb.rating} (${imdb.votes.toLocaleString()} votes)">
+  return `<div class="vsrow" title="${cfg.rowTip(m)}">
     <span class="title">${m.title}</span>
     <span class="cell" style="background:${mine.bg};color:${mine.ink}">${m.rating}</span>
-    <span class="cell" style="background:${theirs.bg};color:${theirs.ink}">${imdb.rating}</span>
+    <span class="cell" style="background:${theirs.bg};color:${theirs.ink}">${cfg.display(m)}</span>
     <span class="delta">${sign}${fmt(Math.abs(delta))}</span>
   </div>`;
 }
@@ -313,10 +313,10 @@ function toRanks(xs) {
   return ranks;
 }
 
-// Scatter of my rating against IMDb's, both on the 0-10 scale so the
-// diagonal marks perfect agreement. Dot color repeats my rating (the
+// Scatter of my rating against another source's, both on the 0-10 scale so
+// the diagonal marks perfect agreement. Dot color repeats my rating (the
 // site-wide scale); position is the real encoding.
-function scatterChart(pairs, xLabel) {
+function scatterChart(pairs, xLabel, who) {
   const W = 460, H = 430, L = 30, R = 14, T = 16, B = 34;
   const sx = (v) => L + (v / 10) * (W - L - R);
   const sy = (v) => H - B - (v / 10) * (H - T - B);
@@ -328,15 +328,15 @@ function scatterChart(pairs, xLabel) {
     <text class="tick" x="${sx(t)}" y="${H - B + 14}" text-anchor="middle">${t}</text>`).join("");
   const dots = pairs.map((p) => `
     <g data-tip="${p.tip}">
-      <circle class="hit" cx="${sx(p.imdb)}" cy="${sy(p.mine)}" r="12" fill="transparent"/>
-      <circle cx="${sx(p.imdb)}" cy="${sy(p.mine)}" r="5" fill="${ratingColor(p.mine).bg}"/>
+      <circle class="hit" cx="${sx(p.theirs)}" cy="${sy(p.mine)}" r="12" fill="transparent"/>
+      <circle cx="${sx(p.theirs)}" cy="${sy(p.mine)}" r="5" fill="${ratingColor(p.mine).bg}"/>
     </g>`).join("");
   return `<svg class="vsscatter" viewBox="0 0 ${W} ${H}" role="img"
-      aria-label="Scatter plot of my ratings against IMDb ratings">
+      aria-label="Scatter plot of my ratings against ${who} ratings">
     ${grid}
     <line class="diag" x1="${sx(0)}" y1="${sy(0)}" x2="${sx(10)}" y2="${sy(10)}"/>
     <text class="hint" x="${sx(1.6)}" y="${sy(8.9)}">I liked it more</text>
-    <text class="hint" x="${sx(9.9)}" y="${sy(0.4)}" text-anchor="end">IMDb liked it more</text>
+    <text class="hint" x="${sx(9.9)}" y="${sy(0.4)}" text-anchor="end">${who} liked it more</text>
     ${dots}
     <text class="axis" x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">${xLabel}</text>
     <text class="axis" x="12" y="${(T + H - B) / 2}" text-anchor="middle"
@@ -344,66 +344,94 @@ function scatterChart(pairs, xLabel) {
   </svg>`;
 }
 
-const vsSorts = {
-  me: { note: "movies sorted by my rating", key: (m) => m.rating },
-  imdb: { note: "movies sorted by IMDb rating", key: (m) => IMDB[m.title].rating },
-  delta: { note: "movies sorted by disagreement with IMDb", key: (m) => Math.abs(m.rating - IMDB[m.title].rating) },
+// Everything the vs-X tabs need to know about a ratings source. score() puts
+// the source on my 0-10 scale; display() is what its table cell shows.
+const VS_SOURCES = {
+  imdb: {
+    name: "IMDb", col: "IMDb", who: "IMDb",
+    heading: "Me vs the crowd",
+    xLabel: "IMDb rating",
+    score: (m) => IMDB[m.title]?.rating,
+    display: (m) => `${IMDB[m.title].rating}`,
+    rowTip: (m) => `${m.title} — me ${m.rating}, IMDb ${IMDB[m.title].rating} (${IMDB[m.title].votes.toLocaleString()} votes)`,
+    fineprint: () => `IMDb ratings snapshot ${IMDB_SNAPSHOT} — refresh with <code>scripts/fetch-imdb.mjs</code>.
+      Shows are left out: IMDb doesn't rate individual seasons.`,
+  },
+  rt: {
+    name: "Rotten Tomatoes", col: "RT", who: "Critics",
+    heading: "Me vs the critics",
+    xLabel: "Tomatometer ÷ 10",
+    score: (m) => RT[m.title] ? RT[m.title].critics / 10 : undefined,
+    display: (m) => `${RT[m.title].critics}%`,
+    rowTip: (m) => `${m.title} — me ${m.rating}, Tomatometer ${RT[m.title].critics}%, audience ${RT[m.title].audience}%`,
+    fineprint: () => `Rotten Tomatoes Tomatometer snapshot ${RT_SNAPSHOT} — refresh with <code>scripts/fetch-rt.mjs</code>.
+      Movies only; &Delta; compares my rating with the Tomatometer &divide; 10.`,
+  },
 };
-let vsSort = "imdb";
 
-function renderVsImdb() {
-  const rated = movies.filter((m) => IMDB[m.title]);
-  const pairs = rated.map((m) => ({ title: m.title, mine: m.rating, imdb: IMDB[m.title].rating }));
-  const mine = pairs.map((p) => p.mine), theirs = pairs.map((p) => p.imdb);
+const vsSortState = { imdb: "theirs", rt: "theirs" };
+
+function renderVsSource(id) {
+  const cfg = VS_SOURCES[id];
+  const rated = movies.filter((m) => cfg.score(m) != null);
+  const pairs = rated.map((m) => ({ m, title: m.title, mine: m.rating, theirs: cfg.score(m) }));
+  const mine = pairs.map((p) => p.mine), theirs = pairs.map((p) => p.theirs);
   const r = pearson(mine, theirs);
   const rho = pearson(toRanks(mine), toRanks(theirs));
   const gap = avg(theirs) - avg(mine);
   const tiles = [
     { label: "Correlation", value: r.toFixed(2), sub: `Pearson r · ${pairs.length} movies` },
     { label: "Rank agreement", value: rho.toFixed(2), sub: "Spearman ρ" },
-    { label: "Tougher grader", value: `−${fmt(gap)}`, sub: `my avg ${fmt(avg(mine))} vs IMDb ${fmt(avg(theirs))}` },
+    { label: "Tougher grader", value: `−${fmt(gap)}`, sub: `my avg ${fmt(avg(mine))} vs ${cfg.col} ${fmt(avg(theirs))}` },
   ];
 
-  // Stretch IMDb's compressed scale onto mine: their lowest-rated movie
-  // becomes a 0 and their highest a 10, everything else in proportion.
+  // Stretch the source's compressed scale onto mine: its lowest-rated movie
+  // becomes a 0 and its highest a 10, everything else in proportion.
   const lo = Math.min(...theirs), hi = Math.max(...theirs);
   const adjust = (v) => ((v - lo) / (hi - lo)) * 10;
-  const rawPairs = pairs.map((p) => ({ ...p, tip: `${p.title} — me ${p.mine}, IMDb ${p.imdb}` }));
+  const rawPairs = pairs.map((p) => ({ ...p, tip: `${p.title} — me ${p.mine}, ${cfg.col} ${cfg.display(p.m)}` }));
   const adjPairs = pairs.map((p) => ({
-    ...p, imdb: adjust(p.imdb),
-    tip: `${p.title} — me ${p.mine}, IMDb ${p.imdb} → ${fmt(adjust(p.imdb))} adjusted`,
+    ...p, theirs: adjust(p.theirs),
+    tip: `${p.title} — me ${p.mine}, ${cfg.col} ${cfg.display(p.m)} → ${fmt(adjust(p.theirs))} adjusted`,
   }));
 
-  const { note, key } = vsSorts[vsSort];
+  const sorts = {
+    me: { note: "movies sorted by my rating", key: (m) => m.rating },
+    theirs: { note: `movies sorted by ${cfg.name} rating`, key: cfg.score },
+    delta: { note: `movies sorted by disagreement with ${cfg.name}`, key: (m) => Math.abs(m.rating - cfg.score(m)) },
+  };
+  const { note, key } = sorts[vsSortState[id]];
   const rows = [...rated].sort((a, b) => key(b) - key(a));
-  const head = (id, label) =>
-    `<span class="vscol${vsSort === id ? " active" : ""}" data-sort="${id}">${label}</span>`;
+  const head = (sid, label) =>
+    `<span class="vscol${vsSortState[id] === sid ? " active" : ""}" data-sort="${sid}">${label}</span>`;
   $("#view").innerHTML = `
     <div class="tiles vstiles">${tiles.map(statTile).join("")}</div>
     <div class="grid-2 vscharts">
       <div class="panel">
-        <h2>Me vs the crowd <span class="note">each dot is a movie · the line is perfect agreement</span></h2>
-        ${scatterChart(rawPairs, "IMDb rating")}
+        <h2>${cfg.heading} <span class="note">each dot is a movie · the line is perfect agreement</span></h2>
+        ${scatterChart(rawPairs, cfg.xLabel, cfg.who)}
       </div>
       <div class="panel">
-        <h2>Adjusted to my scale <span class="note">IMDb stretched so its lowest is 0, highest 10</span></h2>
-        ${scatterChart(adjPairs, "IMDb rating, stretched to 0–10")}
+        <h2>Adjusted to my scale <span class="note">${cfg.col} stretched so its lowest is 0, highest 10</span></h2>
+        ${scatterChart(adjPairs, `${cfg.xLabel}, stretched to 0–10`, cfg.who)}
       </div>
     </div>
     <div class="panel vspanel section-gap">
       <h2>Hot takes <span class="note">${note}</span></h2>
       <div class="vsrow vshead">
-        <span class="title"></span>${head("me", "Me")}${head("imdb", "IMDb")}${head("delta", "&Delta;")}
+        <span class="title"></span>${head("me", "Me")}${head("theirs", cfg.col)}${head("delta", "&Delta;")}
       </div>
-      ${rows.map(vsRow).join("")}
-      <p class="fineprint">IMDb ratings snapshot ${IMDB_SNAPSHOT} — refresh with <code>scripts/fetch-imdb.mjs</code>.
-      Shows are left out: IMDb doesn't rate individual seasons.</p>
+      ${rows.map((m) => vsRow(cfg, m)).join("")}
+      <p class="fineprint">${cfg.fineprint()}</p>
     </div>`;
   $("#view").querySelectorAll(".vshead .vscol").forEach((el) =>
-    el.addEventListener("click", () => { vsSort = el.dataset.sort; renderVsImdb(); }));
+    el.addEventListener("click", () => { vsSortState[id] = el.dataset.sort; renderVsSource(id); }));
 }
 
-const views = { rankings: renderRankings, phases: renderPhases, imdb: renderVsImdb };
+const views = {
+  rankings: renderRankings, phases: renderPhases,
+  imdb: () => renderVsSource("imdb"), rt: () => renderVsSource("rt"),
+};
 
 document.querySelector("nav.tabs").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-view]");
