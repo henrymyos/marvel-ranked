@@ -1,5 +1,7 @@
-// Data transcribed from the "Marvel Ranked" Google Sheet (Aug 2026).
+// Data synced from the "Marvel Ranked" Google Sheet by scripts/fetch-sheet.mjs.
 // Ratings are 0–10. Release-order rating columns are treated as canonical.
+// Phase and year are not in the sheet: the script carries them over per title,
+// so fill them in here whenever it reports a new one.
 
 const MOVIES = [
   { title: "Iron Man", rating: 8, phase: 1, year: 2008 },
