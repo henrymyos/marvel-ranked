@@ -744,6 +744,7 @@ const VS_SOURCES = {
 };
 
 const vsSortState = { imdb: "theirs", rt: "theirs" };
+let vsSource = "imdb";
 
 function renderVsSource(id) {
   const cfg = VS_SOURCES[id];
@@ -779,6 +780,8 @@ function renderVsSource(id) {
   const head = (sid, label) =>
     `<span class="vscol${vsSortState[id] === sid ? " active" : ""}" data-sort="${sid}">${label}</span>`;
   $("#view").innerHTML = `
+    <div class="vsswitch"><span class="seg">${Object.entries(VS_SOURCES).map(([sid, s]) =>
+      `<button class="segbtn${sid === id ? " active" : ""}" data-src="${sid}">${s.name}</button>`).join("")}</span></div>
     <div class="tiles vstiles">${tiles.map(statTile).join("")}</div>
     <div class="grid-2 vscharts">
       <div class="panel">
@@ -800,6 +803,8 @@ function renderVsSource(id) {
     </div>`;
   $("#view").querySelectorAll(".vshead .vscol").forEach((el) =>
     el.addEventListener("click", () => { vsSortState[id] = el.dataset.sort; renderVsSource(id); }));
+  $("#view").querySelectorAll(".vsswitch .segbtn").forEach((btn) =>
+    btn.addEventListener("click", () => { vsSource = btn.dataset.src; renderVsSource(vsSource); }));
 }
 
 // The pre-Disney+ era, parked on its own page: no ratings, no effect on any
@@ -825,7 +830,7 @@ function renderLegacy() {
 
 const views = {
   rankings: renderRankings, phases: renderPhases,
-  imdb: () => renderVsSource("imdb"), rt: () => renderVsSource("rt"),
+  vs: () => renderVsSource(vsSource),
   legacy: renderLegacy,
 };
 
