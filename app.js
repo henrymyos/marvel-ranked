@@ -585,8 +585,32 @@ function phaseAverages(items, unit) {
     .join("");
 }
 
+// Franchise members are derived from titles so their averages track live
+// rating edits. The sheet's rating lists are only a fallback for franchises
+// whose titles we fail to match.
+const FRANCHISE_EXTRAS = {
+  "Hulk": ["The Incredible Hulk"],
+  "Captain Marvel": ["The Marvels"],
+};
+
+function franchiseRatings(name) {
+  const norm = (s) => s.toLowerCase().replace(/&/g, "and");
+  const n = norm(name);
+  const extras = new Set(FRANCHISE_EXTRAS[name] ?? []);
+  return movies.filter((m) => {
+    if (extras.has(m.title)) return true;
+    const t = norm(m.title);
+    return t === n || t === `the ${n}` ||
+      t.startsWith(`${n}:`) || t.startsWith(`${n} `) ||
+      t.startsWith(`the ${n}:`) || t.startsWith(`the ${n} `);
+  }).map((m) => m.rating);
+}
+
 function renderPhases() {
-  const franchises = FRANCHISES.map((f) => ({ ...f, average: avg(f.ratings) }))
+  const franchises = FRANCHISES.map((f) => {
+    const ratings = franchiseRatings(f.name);
+    return { name: f.name, ratings: ratings.length ? ratings : f.ratings };
+  }).map((f) => ({ ...f, average: avg(f.ratings) }))
     .sort((a, b) => b.average - a.average);
   $("#view").innerHTML = `
     ${renderStats()}
