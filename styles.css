@@ -131,6 +131,16 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
 }
 .card:hover { filter: brightness(1.06); }
 
+/* Ranked column + its Coming Up panel stacked in one grid column */
+.stack { display: grid; gap: 16px; align-content: start; }
+select.guess {
+  appearance: none; -webkit-appearance: none;
+  background: none; border: none; font: inherit; font-weight: 700;
+  font-variant-numeric: tabular-nums; color: inherit; cursor: pointer;
+  padding: 0; text-align: right;
+}
+select.guess:focus { outline: none; }
+
 /* Editable ranked lists: grips, tier separators, drag state, live average */
 .row.drag { grid-template-columns: 30px 1fr 18px; }
 .grip {
@@ -276,7 +286,7 @@ footer a { color: inherit; }
   header.site { min-height: 130px; border-radius: 10px; }
   nav.tabs { margin: 14px 0 12px; }
   nav.tabs button { padding: 8px 10px; font-size: 13px; }
-  .split, .grid-2, .tiles { gap: 10px; }
+  .split, .grid-2, .tiles, .stack { gap: 10px; }
   .section-gap { margin-top: 10px; }
   .vspanel, .vstiles, .vscharts { max-width: none; }
 }

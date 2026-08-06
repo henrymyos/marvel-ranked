@@ -31,6 +31,15 @@ function saveEdits() {
   localStorage.setItem(EDITS_KEY, JSON.stringify({ movies: pack(movies), shows: pack(shows) }));
 }
 
+// Expected ratings for the Coming Up slate, also browser-local. Titles with
+// "Season" (plus known series) count as shows; everything else is a movie.
+const GUESS_KEY = "marvelRankedGuesses";
+let guesses = {};
+try { guesses = JSON.parse(localStorage.getItem(GUESS_KEY)) || {}; } catch {}
+
+const UPCOMING_SHOW_HINTS = ["VisionQuest"];
+const isUpcomingShow = (t) => /season\b/i.test(t) || UPCOMING_SHOW_HINTS.includes(t);
+
 // One distinct color per rating value, warm to cool: reds and yellows for
 // the low end, bright green at 5, then a blue ladder — light blue 6,
 // blue 7, indigo 8 — with purple at 9 and pink reserved for perfect 10s.
@@ -202,8 +211,34 @@ function makeDraggable(container, list) {
   });
 }
 
+// An upcoming title with a pick-your-own expected rating. The select is the
+// colored score cell: "?" until a guess is made.
+function guessRow(title) {
+  const g = guesses[title];
+  const c = g != null ? ratingColor(g) : null;
+  const opts = Array.from({ length: 11 }, (_, i) => 10 - i)
+    .map((r) => `<option value="${r}"${g === r ? " selected" : ""}>${r}</option>`).join("");
+  return `<div class="row">
+    <span class="rank">–</span>
+    <span class="cellbox${c ? "" : " unwatched"}"${c ? ` style="background:${c.bg};color:${c.ink}"` : ""}>
+      <span class="title">${title}</span>
+      <select class="guess" data-title="${title}" title="what I expect to rate it">
+        <option value=""${g == null ? " selected" : ""}>?</option>${opts}
+      </select>
+    </span>
+  </div>`;
+}
+
+function comingUpPanel(titles, kind) {
+  return `<div class="panel"><h2>Coming up <span class="note">${titles.length} ${kind} · pick an expected rating</span></h2>
+    ${titles.map(guessRow).join("")}
+  </div>`;
+}
+
 function renderRankings() {
   const edited = localStorage.getItem(EDITS_KEY) !== null;
+  const upMovies = UPCOMING.filter((t) => !isUpcomingShow(t));
+  const upShows = UPCOMING.filter(isUpcomingShow);
   $("#view").innerHTML = `
     <div class="split">
       <div class="release-pane">
@@ -213,20 +248,23 @@ function renderRankings() {
       </div>
       <div class="rank-pane">
         <div class="grid-2">
-          <div class="panel"><h2>Movies ${avgChip(movies)}<span class="note">${movies.length} ranked · drag to re-rank</span></h2>
-            <div class="ranklist" data-kind="movies">${rankSeq(movies)}</div>
+          <div class="stack">
+            <div class="panel"><h2>Movies ${avgChip(movies)}<span class="note">${movies.length} ranked · drag to re-rank</span></h2>
+              <div class="ranklist" data-kind="movies">${rankSeq(movies)}</div>
+            </div>
+            ${comingUpPanel(upMovies, "movies")}
           </div>
-          <div class="panel"><h2>Shows ${avgChip(shows)}<span class="note">${shows.length} ranked</span></h2>
-            <div class="ranklist" data-kind="shows">${rankSeq(shows)}</div>
-            <h2 class="subheading">Haven't seen <span class="note">${UNWATCHED_SHOWS.length} shows</span></h2>
-            ${UNWATCHED_SHOWS.map((t) => `<div class="row">
-              <span class="rank">–</span>
-              <span class="cellbox unwatched"><span class="title">${t}</span></span>
-            </div>`).join("")}
+          <div class="stack">
+            <div class="panel"><h2>Shows ${avgChip(shows)}<span class="note">${shows.length} ranked</span></h2>
+              <div class="ranklist" data-kind="shows">${rankSeq(shows)}</div>
+              <h2 class="subheading">Haven't seen <span class="note">${UNWATCHED_SHOWS.length} shows</span></h2>
+              ${UNWATCHED_SHOWS.map((t) => `<div class="row">
+                <span class="rank">–</span>
+                <span class="cellbox unwatched"><span class="title">${t}</span></span>
+              </div>`).join("")}
+            </div>
+            ${comingUpPanel(upShows, "shows")}
           </div>
-        </div>
-        <div class="panel section-gap"><h2>Coming up <span class="note">announced movies &amp; shows</span></h2>
-          <div class="chips">${UPCOMING.map((t) => `<span class="chip">${t}</span>`).join("")}</div>
         </div>
         ${edited ? `<p class="fineprint">Rankings edited in this browser — the sheet is untouched.
           <a href="#" id="reset-edits">Reset to sheet data</a>.</p>` : ""}
@@ -234,6 +272,14 @@ function renderRankings() {
     </div>`;
   $("#view").querySelectorAll(".ranklist").forEach((el) =>
     makeDraggable(el, el.dataset.kind === "movies" ? movies : shows));
+  $("#view").querySelectorAll("select.guess").forEach((sel) =>
+    sel.addEventListener("change", () => {
+      const t = sel.dataset.title;
+      if (sel.value === "") delete guesses[t];
+      else guesses[t] = Number(sel.value);
+      localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
+      renderRankings();
+    }));
   $("#reset-edits")?.addEventListener("click", (e) => {
     e.preventDefault();
     localStorage.removeItem(EDITS_KEY);
