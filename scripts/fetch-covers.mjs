@@ -59,6 +59,13 @@ const WIKI = {
   "Echo": "Echo (TV series)",
   "Ironheart": "Ironheart (TV series)",
   "Wonder Man": "Wonder Man (TV series)",
+  "Agatha All Along": "Agatha All Along",
+  "What If Season 3": "What If...? (season 3)",
+  "Daredevil: Born Again Season 1": "Daredevil: Born Again",
+  "Eyes of Wakanda": "Eyes of Wakanda",
+  "Marvel Zombies": "Marvel Zombies (TV series)",
+  "Daredevil: Born Again Season 2": "Daredevil: Born Again",
+  "The Punisher: One Last Kill": "The Punisher (special presentation)",
 };
 
 const uniq = [...new Set(Object.values(WIKI))];

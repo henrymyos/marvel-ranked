@@ -129,6 +129,10 @@ nav.tabs button.active { color: var(--text-primary); border-bottom-color: var(--
   font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums;
   border-radius: 6px; padding: 2px 9px; margin-right: 8px; flex-shrink: 0;
 }
+.card .score.unknown {
+  background: var(--track); color: var(--text-secondary);
+  border: 1px dashed var(--baseline);
+}
 .card:hover { filter: brightness(1.06); }
 
 /* Ranked column + its Coming Up panel stacked in one grid column */

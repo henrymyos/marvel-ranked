@@ -129,13 +129,13 @@ const SHOW_RANK_ORDER = [
 ];
 
 const UNWATCHED_SHOWS = [
-  "Agatha All Along",
-  "What If Season 3",
-  "Daredevil: Born Again Season 1",
-  "Eyes of Wakanda",
-  "Marvel Zombies",
-  "Daredevil: Born Again Season 2",
-  "The Punisher: One Last Kill",
+  { title: "Agatha All Along", phase: 5, year: 2024 },
+  { title: "What If Season 3", phase: 5, year: 2024 },
+  { title: "Daredevil: Born Again Season 1", phase: 5, year: 2025 },
+  { title: "Eyes of Wakanda", phase: 5, year: 2025 },
+  { title: "Marvel Zombies", phase: 5, year: 2025 },
+  { title: "Daredevil: Born Again Season 2", phase: 6, year: 2026 },
+  { title: "The Punisher: One Last Kill", phase: 6, year: 2026 },
 ];
 
 const UPCOMING = [

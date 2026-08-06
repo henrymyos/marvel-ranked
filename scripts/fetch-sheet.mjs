@@ -104,9 +104,10 @@ franchises.sort((a, b) => avg(b.ratings) - avg(a.ratings));
 
 // Phase and year live only in data.js — carry them over for known titles.
 const prev = readFileSync(DATA_PATH, "utf8");
-const old = new Function(`${prev}; return { MOVIES, SHOWS };`)();
+const old = new Function(`${prev}; return { MOVIES, SHOWS, UNWATCHED_SHOWS };`)();
 const meta = {};
-for (const e of [...old.MOVIES, ...old.SHOWS]) meta[e.title] = e;
+const oldUnwatched = (old.UNWATCHED_SHOWS ?? []).filter((e) => typeof e === "object");
+for (const e of [...old.MOVIES, ...old.SHOWS, ...oldUnwatched]) meta[e.title] = e;
 const withMeta = (e) => ({
   ...e,
   phase: meta[e.title]?.phase ?? null,
@@ -114,7 +115,8 @@ const withMeta = (e) => ({
 });
 
 // Sanity report before overwriting anything.
-const missingMeta = [...movies, ...shows].filter((e) => !meta[e.title]);
+const missingMeta = [...movies, ...shows, ...unwatched.map((t) => ({ title: t }))]
+  .filter((e) => !meta[e.title]);
 if (missingMeta.length)
   console.warn("NEW TITLES — fill in phase/year by hand:\n  " +
     missingMeta.map((e) => e.title).join("\n  "));
@@ -150,7 +152,7 @@ ${showRank.map(name).join("\n")}
 ];
 
 const UNWATCHED_SHOWS = [
-${unwatched.map(name).join("\n")}
+${unwatched.map((t) => `  { title: ${JSON.stringify(t)}, phase: ${meta[t]?.phase ?? null}, year: ${meta[t]?.year ?? null} },`).join("\n")}
 ];
 
 const UPCOMING = [

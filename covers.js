@@ -56,5 +56,11 @@ const COVERS = {
   "Loki Season 2": "https://upload.wikimedia.org/wikipedia/en/4/4b/Loki_season_2_poster.jpg",
   "What If Season 2": "https://upload.wikimedia.org/wikipedia/en/b/b4/What_If...%3F_season_2_poster.jpeg",
   "Echo": "https://upload.wikimedia.org/wikipedia/en/9/99/Echo_%28miniseries%29_logo.jpg",
-  "Ironheart": "https://upload.wikimedia.org/wikipedia/en/e/e9/Ironheart_%28miniseries%29_logo.png"
+  "Ironheart": "https://upload.wikimedia.org/wikipedia/en/e/e9/Ironheart_%28miniseries%29_logo.png",
+  "Agatha All Along": "https://upload.wikimedia.org/wikipedia/en/7/70/Agatha_All_Along_logo.jpg",
+  "What If Season 3": "https://upload.wikimedia.org/wikipedia/en/b/ba/What_If...%3F_season_3_poster.jpeg",
+  "Daredevil: Born Again Season 1": "https://upload.wikimedia.org/wikipedia/en/d/d9/Daredevil_Born_Again_logo.jpeg",
+  "Eyes of Wakanda": "https://upload.wikimedia.org/wikipedia/en/thumb/f/fd/Eyes_of_Wakanda_logo.jpg/500px-Eyes_of_Wakanda_logo.jpg",
+  "Marvel Zombies": "https://upload.wikimedia.org/wikipedia/en/1/1a/Marvel_Zombies_%28TV_series%29_logo.png",
+  "Daredevil: Born Again Season 2": "https://upload.wikimedia.org/wikipedia/en/d/d9/Daredevil_Born_Again_logo.jpeg"
 };

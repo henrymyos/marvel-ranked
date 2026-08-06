@@ -17,12 +17,14 @@ const EDITS_KEY = "marvelRankedEdits";
 // Unwatched shows can be dragged into the rankings (and back out). A show
 // promoted this way keeps its sheet metadata if it ever had any; otherwise
 // phase/year stay null and phase- and year-based views skip it.
-let unwatchedShows = [...UNWATCHED_SHOWS];
+let unwatchedShows = UNWATCHED_SHOWS.map((u) => u.title);
 const SHOW_META = new Map(shows.map((s) => [s.title, { ...s }]));
-const ALL_SHOW_TITLES = new Set([...shows.map((s) => s.title), ...UNWATCHED_SHOWS]);
-const promotedShow = (title) => SHOW_META.has(title)
-  ? { ...SHOW_META.get(title) }
-  : { title, type: "show", phase: null, year: null, release: null };
+const UNWATCHED_META = new Map(UNWATCHED_SHOWS.map((u) => [u.title, { ...u, type: "show", release: null }]));
+const ALL_SHOW_TITLES = new Set([...shows.map((s) => s.title), ...unwatchedShows]);
+const promotedShow = (title) => {
+  const meta = SHOW_META.get(title) ?? UNWATCHED_META.get(title);
+  return meta ? { ...meta } : { title, type: "show", phase: null, year: null, release: null };
+};
 
 // Apply a rankings pack ({movies, shows, unwatched} in best-to-worst order)
 // from localStorage or the sheet web app. Rejected wholesale if the title
@@ -42,7 +44,7 @@ function applyPack(saved) {
   // Shows are valid while (ranked ∪ unwatched) still matches the sheet's
   // title set — shows may have moved between the two lists.
   const packedShows = Array.isArray(saved.shows) ? saved.shows : null;
-  const packedUn = Array.isArray(saved.unwatched) ? saved.unwatched : [...UNWATCHED_SHOWS];
+  const packedUn = Array.isArray(saved.unwatched) ? saved.unwatched : UNWATCHED_SHOWS.map((u) => u.title);
   if (packedShows) {
     const union = [...packedShows.map((e) => e.t), ...packedUn];
     if (union.length === ALL_SHOW_TITLES.size && new Set(union).size === union.length &&
@@ -172,18 +174,24 @@ function coverCard(item) {
   const media = src
     ? `<img src="${src}" alt="" loading="lazy" class="${src.includes("logo") ? "contain" : ""}">`
     : `<span class="noimg">${item.title.replace(/[^A-Z]/g, "").slice(0, 2) || item.title[0]}</span>`;
-  const c = ratingColor(item.rating);
-  return `<div class="card" style="--phase:${PHASE_COLORS[item.phase]}" title="${item.title} — ${item.rating}/10">
+  const rated = item.rating != null;
+  const c = rated ? ratingColor(item.rating) : null;
+  return `<div class="card" style="--phase:${PHASE_COLORS[item.phase]}"
+      title="${item.title} — ${rated ? `${item.rating}/10` : "haven't seen it yet"}">
     ${media}
     <span class="name">${item.title}</span>
-    <span class="score" style="background:${c.bg};color:${c.ink}">${item.rating}</span>
+    ${rated
+      ? `<span class="score" style="background:${c.bg};color:${c.ink}">${item.rating}</span>`
+      : `<span class="score unknown">?</span>`}
   </div>`;
 }
 
 function releaseGallery(items, heading) {
   // The shows array is rebuilt in rank order whenever edits are applied, so
-  // release views must sort by release position themselves.
-  items = items.filter((i) => i.phase != null).sort((a, b) => a.release - b.release);
+  // release views must sort by release position themselves. Titles without a
+  // release position (unwatched, promoted) sit at the end of their phase.
+  items = items.filter((i) => i.phase != null)
+    .sort((a, b) => (a.release ?? Infinity) - (b.release ?? Infinity));
   const phases = [...new Set(items.map((i) => i.phase))];
   return `<div class="panel">
     <h2>${heading} <span class="note">release order</span></h2>
@@ -401,7 +409,7 @@ function renderRankings() {
       <div class="release-pane">
         ${releaseGallery(movies, "Movies")}
         <div class="section-gap"></div>
-        ${releaseGallery(shows, "Shows")}
+        ${releaseGallery([...shows, ...unwatchedShows.map((t) => UNWATCHED_META.get(t)).filter(Boolean)], "Shows")}
       </div>
       <div class="rank-pane">
         <div class="grid-2">
@@ -469,7 +477,8 @@ function columnChart({ groups, max = 10, ticks = [0, 5, 10] }) {
 }
 
 function timelineChart(items) {
-  items = items.filter((i) => i.phase != null).sort((a, b) => a.release - b.release);
+  items = items.filter((i) => i.phase != null)
+    .sort((a, b) => (a.release ?? Infinity) - (b.release ?? Infinity));
   const phases = [...new Set(items.map((i) => i.phase))];
   return columnChart({
     groups: phases.map((p) => ({
