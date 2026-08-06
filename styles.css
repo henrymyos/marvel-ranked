@@ -247,6 +247,10 @@ button.guess {
 .vsscatter circle:not(.hit) { stroke: var(--surface); stroke-width: 2; }
 .vsscatter g:hover circle:not(.hit) { filter: brightness(1.15); }
 
+/* Legacy TV: unranked pre-Disney+ seasons grouped by series */
+.legacywrap { max-width: 900px; margin: 0 auto; }
+.phase-block h3 .note { font-weight: 400; color: var(--text-muted); }
+
 /* Zero-sum guard: shown on every tab when an average drifts off 5.0 */
 .balance-alert {
   margin: 14px 0 0; padding: 12px 16px; border-radius: 10px;

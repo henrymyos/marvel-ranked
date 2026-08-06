@@ -176,7 +176,7 @@ function coverCard(item) {
     : `<span class="noimg">${item.title.replace(/[^A-Z]/g, "").slice(0, 2) || item.title[0]}</span>`;
   const rated = item.rating != null;
   const c = rated ? ratingColor(item.rating) : null;
-  return `<div class="card" style="--phase:${PHASE_COLORS[item.phase]}"
+  return `<div class="card" style="--phase:${PHASE_COLORS[item.phase] ?? "#8a8781"}"
       title="${item.title} — ${rated ? `${item.rating}/10` : "haven't seen it yet"}">
     ${media}
     <span class="name">${item.title}</span>
@@ -791,9 +791,33 @@ function renderVsSource(id) {
     el.addEventListener("click", () => { vsSortState[id] = el.dataset.sort; renderVsSource(id); }));
 }
 
+// The pre-Disney+ era, parked on its own page: no ratings, no effect on any
+// stats — just the watchlist grouped by series until a decision is made.
+function renderLegacy() {
+  const groups = [];
+  for (const title of LEGACY_SHOWS) {
+    const series = title.replace(/ Season \d+$/, "");
+    let g = groups.find((x) => x.name === series);
+    if (!g) groups.push(g = { name: series, titles: [] });
+    g.titles.push(title);
+  }
+  $("#view").innerHTML = `
+    <div class="panel legacywrap">
+      <h2>Legacy TV <span class="note">${LEGACY_SHOWS.length} seasons from the pre-Disney+ era —
+        parked here until they're watched &amp; ranked</span></h2>
+      ${groups.map((g) => `
+        <section class="phase-block">
+          <h3 style="--phase:#8a8781"><span class="dot"></span>${g.name}
+            <span class="note">${g.titles.length} season${g.titles.length === 1 ? "" : "s"}</span></h3>
+          <div class="covers">${g.titles.map((t) => coverCard({ title: t, phase: null, rating: null })).join("")}</div>
+        </section>`).join("")}
+    </div>`;
+}
+
 const views = {
   rankings: renderRankings, phases: renderPhases,
   imdb: () => renderVsSource("imdb"), rt: () => renderVsSource("rt"),
+  legacy: renderLegacy,
 };
 
 let currentView = "rankings";

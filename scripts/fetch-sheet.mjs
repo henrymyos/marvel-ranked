@@ -80,12 +80,18 @@ for (const { row, value: title } of column(O)) {
 }
 
 // Movies: release order from A, keeping only titles ranked as movies in H.
-// Titles after the blank row that follows the last rated entry are announced.
+// Titles after the blank row that follows the last rated entry are announced;
+// a gap of 3+ blank rows below those starts the legacy-TV block (the
+// pre-Disney+ shows, unranked). Short gaps inside the announced list are fine.
 const colA = column(A);
 const lastRated = colA.findLast((c) => cell(c.row, B) !== "");
-const movies = [], upcoming = [], strays = [];
+let legacyStart = grid.length;
+for (let r = lastRated.row + 1; r + 2 < grid.length; r++) {
+  if (cell(r, A) === "" && cell(r + 1, A) === "" && cell(r + 2, A) === "") { legacyStart = r; break; }
+}
+const movies = [], upcoming = [], legacy = [], strays = [];
 for (const { row, value: title } of colA) {
-  if (row > lastRated.row) { upcoming.push(title); continue; }
+  if (row > lastRated.row) { (row < legacyStart ? upcoming : legacy).push(title); continue; }
   const rating = cell(row, B);
   if (isMovie.has(title)) movies.push({ title, rating: Number(rating) });
   else if (!isShow.has(title) && rating !== "") strays.push(title);
@@ -159,6 +165,12 @@ const UPCOMING = [
 ${upcoming.map(name).join("\n")}
 ];
 
+// Pre-Disney+ era shows (release order), parked on their own page until
+// they get watched and ranked.
+const LEGACY_SHOWS = [
+${legacy.map(name).join("\n")}
+];
+
 const FRANCHISES = [
 ${franchises.map((f) => `  { name: ${JSON.stringify(f.name)}, ratings: [${f.ratings.join(", ")}] },`).join("\n")}
 ];
@@ -166,4 +178,5 @@ ${franchises.map((f) => `  { name: ${JSON.stringify(f.name)}, ratings: [${f.rati
 
 writeFileSync(DATA_PATH, out);
 console.log(`ok: ${movies.length} movies, ${shows.length} shows, ` +
-  `${unwatched.length} unwatched, ${upcoming.length} upcoming, ${franchises.length} franchises`);
+  `${unwatched.length} unwatched, ${upcoming.length} upcoming, ` +
+  `${legacy.length} legacy, ${franchises.length} franchises`);
