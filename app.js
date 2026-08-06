@@ -15,36 +15,42 @@ const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2).replace(/0$/, "").repl
 const EDITS_KEY = "marvelRankedEdits";
 
 // Unwatched shows can be dragged into the rankings (and back out). A show
-// promoted this way has no phase/year, so phase- and year-based views skip it.
+// promoted this way keeps its sheet metadata if it ever had any; otherwise
+// phase/year stay null and phase- and year-based views skip it.
 let unwatchedShows = [...UNWATCHED_SHOWS];
-const promotedShow = (title) =>
-  ({ title, type: "show", phase: null, year: null, release: null });
+const SHOW_META = new Map(shows.map((s) => [s.title, { ...s }]));
+const ALL_SHOW_TITLES = new Set([...shows.map((s) => s.title), ...UNWATCHED_SHOWS]);
+const promotedShow = (title) => SHOW_META.has(title)
+  ? { ...SHOW_META.get(title) }
+  : { title, type: "show", phase: null, year: null, release: null };
 
-(function loadEdits() {
-  let saved;
-  try { saved = JSON.parse(localStorage.getItem(EDITS_KEY)); } catch { return; }
-  if (!saved) return;
+// Apply a rankings pack ({movies, shows, unwatched} in best-to-worst order)
+// from localStorage or the sheet web app. Rejected wholesale if the title
+// sets no longer match data.js. Returns whether anything was applied.
+function applyPack(saved) {
+  if (!saved) return false;
+  let applied = false;
 
   if (Array.isArray(saved.movies) && saved.movies.length === movies.length) {
     const byTitle = new Map(movies.map((i) => [i.title, i]));
     if (saved.movies.every((e) => byTitle.has(e.t) && Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
       saved.movies.forEach((e, i) => { const it = byTitle.get(e.t); it.rating = e.r; it.rank = i + 1; });
+      applied = true;
     }
   }
 
-  // Shows edits are valid while (ranked ∪ unwatched) still matches the sheet's
+  // Shows are valid while (ranked ∪ unwatched) still matches the sheet's
   // title set — shows may have moved between the two lists.
   const packedShows = Array.isArray(saved.shows) ? saved.shows : null;
   const packedUn = Array.isArray(saved.unwatched) ? saved.unwatched : [...UNWATCHED_SHOWS];
   if (packedShows) {
-    const valid = new Set([...shows.map((i) => i.title), ...UNWATCHED_SHOWS]);
     const union = [...packedShows.map((e) => e.t), ...packedUn];
-    if (union.length === valid.size && new Set(union).size === union.length &&
-        union.every((t) => valid.has(t)) &&
+    if (union.length === ALL_SHOW_TITLES.size && new Set(union).size === union.length &&
+        union.every((t) => ALL_SHOW_TITLES.has(t)) &&
         packedShows.every((e) => Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
-      const orig = new Map(shows.map((i) => [i.title, i]));
+      const cur = new Map(shows.map((i) => [i.title, i]));
       const rebuilt = packedShows.map((e, i) => {
-        const it = orig.get(e.t) ?? promotedShow(e.t);
+        const it = cur.get(e.t) ?? promotedShow(e.t);
         it.rating = e.r;
         it.rank = i + 1;
         return it;
@@ -52,15 +58,29 @@ const promotedShow = (title) =>
       shows.length = 0;
       shows.push(...rebuilt);
       unwatchedShows = packedUn.slice();
+      applied = true;
     }
   }
+  return applied;
+}
+
+(function loadEdits() {
+  try { applyPack(JSON.parse(localStorage.getItem(EDITS_KEY))); } catch {}
 })();
+
+const syncOn = typeof SYNC !== "undefined" && SYNC.url;
 
 function saveEdits() {
   const pack = (xs) => [...xs].sort((a, b) => a.rank - b.rank).map((i) => ({ t: i.title, r: i.rating }));
-  localStorage.setItem(EDITS_KEY, JSON.stringify({
-    movies: pack(movies), shows: pack(shows), unwatched: unwatchedShows,
-  }));
+  const body = { movies: pack(movies), shows: pack(shows), unwatched: unwatchedShows };
+  localStorage.setItem(EDITS_KEY, JSON.stringify(body));
+  if (syncOn) {
+    // Sent as text/plain so the Apps Script web app never sees a preflight.
+    fetch(SYNC.url, { method: "POST", body: JSON.stringify({ token: SYNC.token, ...body }) })
+      .then((r) => r.json())
+      .then((res) => { if (!res.ok) throw new Error(res.error); })
+      .catch((err) => console.warn("sheet sync: save failed —", err));
+  }
 }
 
 // Expected ratings for the Coming Up slate, also browser-local. Titles with
@@ -384,7 +404,7 @@ function renderRankings() {
             ${comingUpPanel(upShows, "shows")}
           </div>
         </div>
-        ${edited ? `<p class="fineprint">Rankings edited in this browser — the sheet is untouched.
+        ${edited && !syncOn ? `<p class="fineprint">Rankings edited in this browser — the sheet is untouched.
           <a href="#" id="reset-edits">Reset to sheet data</a>.</p>` : ""}
       </div>
     </div>`;
@@ -720,12 +740,33 @@ const views = {
   imdb: () => renderVsSource("imdb"), rt: () => renderVsSource("rt"),
 };
 
+let currentView = "rankings";
+
 document.querySelector("nav.tabs").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-view]");
   if (!btn) return;
   document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("active", b === btn));
-  views[btn.dataset.view]();
+  currentView = btn.dataset.view;
+  views[currentView]();
 });
+
+// With sync configured, the sheet is the source of truth: pull the live
+// rankings on load (the localStorage copy already shown is just a cache).
+if (syncOn) {
+  fetch(`${SYNC.url}?token=${encodeURIComponent(SYNC.token)}`)
+    .then((r) => r.json())
+    .then((live) => {
+      if (!live.ok) throw new Error(live.error);
+      if (applyPack(live)) {
+        localStorage.setItem(EDITS_KEY, JSON.stringify({
+          movies: live.movies, shows: live.shows, unwatched: live.unwatched,
+        }));
+        views[currentView]();
+        updateBalanceAlert();
+      }
+    })
+    .catch((err) => console.warn("sheet sync: load failed —", err));
+}
 
 // One shared tooltip for every [data-tip] mark. pointerover covers both
 // mouse hover and touch taps (a tap fires pointerover before pointerdown);
