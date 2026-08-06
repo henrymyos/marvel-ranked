@@ -14,21 +14,53 @@ const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2).replace(/0$/, "").repl
 // sheet — a re-sync that adds or removes a title silently discards them.
 const EDITS_KEY = "marvelRankedEdits";
 
+// Unwatched shows can be dragged into the rankings (and back out). A show
+// promoted this way has no phase/year, so phase- and year-based views skip it.
+let unwatchedShows = [...UNWATCHED_SHOWS];
+const promotedShow = (title) =>
+  ({ title, type: "show", phase: null, year: null, release: null });
+
 (function loadEdits() {
   let saved;
   try { saved = JSON.parse(localStorage.getItem(EDITS_KEY)); } catch { return; }
   if (!saved) return;
-  for (const [list, packed] of [[movies, saved.movies], [shows, saved.shows]]) {
-    if (!Array.isArray(packed) || packed.length !== list.length) continue;
-    const byTitle = new Map(list.map((i) => [i.title, i]));
-    if (!packed.every((e) => byTitle.has(e.t) && Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) continue;
-    packed.forEach((e, i) => { const it = byTitle.get(e.t); it.rating = e.r; it.rank = i + 1; });
+
+  if (Array.isArray(saved.movies) && saved.movies.length === movies.length) {
+    const byTitle = new Map(movies.map((i) => [i.title, i]));
+    if (saved.movies.every((e) => byTitle.has(e.t) && Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
+      saved.movies.forEach((e, i) => { const it = byTitle.get(e.t); it.rating = e.r; it.rank = i + 1; });
+    }
+  }
+
+  // Shows edits are valid while (ranked ∪ unwatched) still matches the sheet's
+  // title set — shows may have moved between the two lists.
+  const packedShows = Array.isArray(saved.shows) ? saved.shows : null;
+  const packedUn = Array.isArray(saved.unwatched) ? saved.unwatched : [...UNWATCHED_SHOWS];
+  if (packedShows) {
+    const valid = new Set([...shows.map((i) => i.title), ...UNWATCHED_SHOWS]);
+    const union = [...packedShows.map((e) => e.t), ...packedUn];
+    if (union.length === valid.size && new Set(union).size === union.length &&
+        union.every((t) => valid.has(t)) &&
+        packedShows.every((e) => Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
+      const orig = new Map(shows.map((i) => [i.title, i]));
+      const rebuilt = packedShows.map((e, i) => {
+        const it = orig.get(e.t) ?? promotedShow(e.t);
+        it.rating = e.r;
+        it.rank = i + 1;
+        return it;
+      });
+      shows.length = 0;
+      shows.push(...rebuilt);
+      unwatchedShows = packedUn.slice();
+    }
   }
 })();
 
 function saveEdits() {
   const pack = (xs) => [...xs].sort((a, b) => a.rank - b.rank).map((i) => ({ t: i.title, r: i.rating }));
-  localStorage.setItem(EDITS_KEY, JSON.stringify({ movies: pack(movies), shows: pack(shows) }));
+  localStorage.setItem(EDITS_KEY, JSON.stringify({
+    movies: pack(movies), shows: pack(shows), unwatched: unwatchedShows,
+  }));
 }
 
 // Expected ratings for the Coming Up slate, also browser-local. Titles with
@@ -108,6 +140,7 @@ function coverCard(item) {
 }
 
 function releaseGallery(items, heading) {
+  items = items.filter((i) => i.phase != null);
   const phases = [...new Set(items.map((i) => i.phase))];
   return `<div class="panel">
     <h2>${heading} <span class="note">release order</span></h2>
@@ -178,37 +211,82 @@ function commitList(container, list) {
   updateBalanceAlert();
 }
 
-function makeDraggable(container, list) {
-  container.addEventListener("pointerdown", (e) => {
-    const grip = e.target.closest(".grip");
-    if (!grip || !container.contains(grip)) return;
-    const row = grip.closest("[data-drag]");
-    if (!row) return;
-    e.preventDefault();
-    try { grip.setPointerCapture(e.pointerId); } catch {}
-    row.classList.add("dragging");
-    const onMove = (ev) => {
-      // Insert before the first non-dragged row whose midpoint is below the
-      // pointer. The fixed 10-header is excluded, so nothing lands above it.
-      const candidates = [...container.children].filter((c) => c !== row && !c.classList.contains("fixed"));
-      const next = candidates.find((c) => {
-        const b = c.getBoundingClientRect();
-        return ev.clientY < b.top + b.height / 2;
-      }) ?? null;
-      if (next !== row.nextElementSibling) container.insertBefore(row, next);
-    };
-    const finish = (ev) => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", finish);
-      window.removeEventListener("pointercancel", finish);
-      row.classList.remove("dragging");
-      if (ev.type === "pointerup") commitList(container, list);
-      else renderRankings();
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", finish);
-    window.addEventListener("pointercancel", finish);
-  });
+// The shows panel commits from two lists: whatever sits in the ranklist is
+// ranked (unwatched shows dropped there get promoted, with the tier's rating),
+// and whatever sits in the unwatched list doesn't count toward anything.
+function commitShows(rankEl, unwatchedEl) {
+  const byTitle = new Map(shows.map((i) => [i.title, i]));
+  const rebuilt = [];
+  let cur = 10, rank = 1;
+  for (const el of rankEl.children) {
+    if (el.dataset.tier !== undefined) cur = Number(el.dataset.tier);
+    else if (el.dataset.title !== undefined) {
+      const it = byTitle.get(el.dataset.title) ?? promotedShow(el.dataset.title);
+      it.rating = cur;
+      it.rank = rank++;
+      rebuilt.push(it);
+    }
+  }
+  shows.length = 0;
+  shows.push(...rebuilt);
+  unwatchedShows = [...unwatchedEl.children]
+    .filter((el) => el.dataset.title !== undefined)
+    .map((el) => el.dataset.title);
+  saveEdits();
+  renderRankings();
+  updateBalanceAlert();
+}
+
+// Rows drag freely across the given containers (ranked list and, for shows,
+// the unwatched list). Tier separators stay confined to the first container.
+function makeDraggable(containers, onCommit) {
+  containers = containers.filter(Boolean);
+  for (const container of containers) {
+    container.addEventListener("pointerdown", (e) => {
+      const grip = e.target.closest(".grip");
+      if (!grip || !container.contains(grip)) return;
+      const row = grip.closest("[data-drag]");
+      if (!row) return;
+      e.preventDefault();
+      try { grip.setPointerCapture(e.pointerId); } catch {}
+      row.classList.add("dragging");
+      const isTier = row.dataset.tier !== undefined;
+      const onMove = (ev) => {
+        // Pick the container under the pointer, then insert before the first
+        // non-dragged row whose midpoint is below it. The fixed 10-header is
+        // excluded, so nothing lands above it.
+        const zones = isTier ? [containers[0]] : containers;
+        let target = zones.find((z) => {
+          const r = z.getBoundingClientRect();
+          return ev.clientY >= r.top - 10 && ev.clientY <= r.bottom + 10;
+        });
+        if (!target) {
+          target = zones.reduce((best, z) => {
+            const r = z.getBoundingClientRect();
+            const d = Math.min(Math.abs(ev.clientY - r.top), Math.abs(ev.clientY - r.bottom));
+            return !best || d < best.d ? { z, d } : best;
+          }, null).z;
+        }
+        const candidates = [...target.children].filter((c) => c !== row && !c.classList.contains("fixed"));
+        const next = candidates.find((c) => {
+          const b = c.getBoundingClientRect();
+          return ev.clientY < b.top + b.height / 2;
+        }) ?? null;
+        if (row.parentElement !== target || next !== row.nextElementSibling) target.insertBefore(row, next);
+      };
+      const finish = (ev) => {
+        window.removeEventListener("pointermove", onMove);
+        window.removeEventListener("pointerup", finish);
+        window.removeEventListener("pointercancel", finish);
+        row.classList.remove("dragging");
+        if (ev.type === "pointerup") onCommit();
+        else renderRankings();
+      };
+      window.addEventListener("pointermove", onMove);
+      window.addEventListener("pointerup", finish);
+      window.addEventListener("pointercancel", finish);
+    });
+  }
 }
 
 // An upcoming title with a pick-your-own expected rating. The score cell is a
@@ -293,11 +371,15 @@ function renderRankings() {
           <div class="stack">
             <div class="panel"><h2>Shows ${avgChip(shows)}<span class="note">${shows.length} ranked</span></h2>
               <div class="ranklist" data-kind="shows">${rankSeq(shows)}</div>
-              <h2 class="subheading">Haven't seen <span class="note">${UNWATCHED_SHOWS.length} shows</span></h2>
-              ${UNWATCHED_SHOWS.map((t) => `<div class="row">
+              <h2 class="subheading">Haven't seen <span class="note">${unwatchedShows.length} shows · guesses don't count · drag up once watched</span></h2>
+              <div class="unwatchedlist">${unwatchedShows.map((t) => `<div class="row drag" data-drag data-title="${t}">
                 <span class="rank">–</span>
-                <span class="cellbox unwatched"><span class="title">${t}</span></span>
-              </div>`).join("")}
+                <span class="cellbox${guesses[t] != null ? "" : " unwatched"}"${guesses[t] != null ? ` style="background:${ratingColor(guesses[t]).bg};color:${ratingColor(guesses[t]).ink}"` : ""}>
+                  <span class="title">${t}</span>
+                  <button class="guess" data-title="${t}" title="what I expect to rate it">${guesses[t] ?? "?"}</button>
+                </span>
+                <span class="grip" title="drag into the rankings once watched">⠿</span>
+              </div>`).join("")}</div>
             </div>
             ${comingUpPanel(upShows, "shows")}
           </div>
@@ -306,8 +388,11 @@ function renderRankings() {
           <a href="#" id="reset-edits">Reset to sheet data</a>.</p>` : ""}
       </div>
     </div>`;
-  $("#view").querySelectorAll(".ranklist").forEach((el) =>
-    makeDraggable(el, el.dataset.kind === "movies" ? movies : shows));
+  const movieList = $("#view").querySelector('.ranklist[data-kind="movies"]');
+  makeDraggable([movieList], () => commitList(movieList, movies));
+  const showList = $("#view").querySelector('.ranklist[data-kind="shows"]');
+  const unwatchedList = $("#view").querySelector(".unwatchedlist");
+  makeDraggable([showList, unwatchedList], () => commitShows(showList, unwatchedList));
   $("#view").querySelectorAll("button.guess").forEach((btn) =>
     btn.addEventListener("click", () => openGuessPop(btn)));
   $("#reset-edits")?.addEventListener("click", (e) => {
@@ -341,6 +426,7 @@ function columnChart({ groups, max = 10, ticks = [0, 5, 10] }) {
 }
 
 function timelineChart(items) {
+  items = items.filter((i) => i.phase != null);
   const phases = [...new Set(items.map((i) => i.phase))];
   return columnChart({
     groups: phases.map((p) => ({
@@ -375,10 +461,13 @@ function segControl(chart) {
 
 function renderStats() {
   const all = [...movies, ...shows];
-  const groupStats = (items, key) => [...new Set(items.map((i) => i[key]))].map((k) => {
-    const xs = items.filter((i) => i[key] === k);
-    return { key: k, average: avg(xs.map((i) => i.rating)), count: xs.length };
-  }).sort((a, b) => b.average - a.average);
+  const groupStats = (raw, key) => {
+    const items = raw.filter((i) => i[key] != null);
+    return [...new Set(items.map((i) => i[key]))].map((k) => {
+      const xs = items.filter((i) => i[key] === k);
+      return { key: k, average: avg(xs.map((i) => i.rating)), count: xs.length };
+    }).sort((a, b) => b.average - a.average);
+  };
 
   const byPhase = groupStats(all, "phase");
   const byYear = groupStats(all, "year");
@@ -412,7 +501,7 @@ function renderStats() {
 
   // Average rating for everything watched, per release year (gap years stay
   // as empty slots so the time axis stays linear).
-  const yearItems = filterSets[statsFilter.year]();
+  const yearItems = filterSets[statsFilter.year]().filter((i) => i.year != null);
   const years = yearItems.map((i) => i.year);
   const yearRange = [];
   for (let y = Math.min(...years); y <= Math.max(...years); y++) yearRange.push(y);
