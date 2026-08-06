@@ -145,9 +145,10 @@ const UPCOMING = [
   "Avengers: Secret Wars",
   "Black Panther 3",
   "Ghost Rider",
-  "Blade",
   "X-Men",
-  "Wonder-Man Season 2",
+  "Shang-Chi 2",
+  "Nova",
+  "Deadpool 4",
 ];
 
 const FRANCHISES = [
