@@ -70,17 +70,38 @@ function applyPack(saved) {
 
 const syncOn = typeof SYNC !== "undefined" && SYNC.url;
 
+// Apps Script answers through a redirect that sometimes serves an error page
+// instead of the JSON, so reads retry and writes are verified by re-reading.
+function fetchLive(retries = 3) {
+  return fetch(`${SYNC.url}?token=${encodeURIComponent(SYNC.token)}`)
+    .then((r) => r.text())
+    .then((t) => JSON.parse(t))
+    .catch((err) => retries > 0
+      ? new Promise((res) => setTimeout(res, 2500)).then(() => fetchLive(retries - 1))
+      : Promise.reject(err));
+}
+
+let saveSeq = 0;
+
 function saveEdits() {
   const pack = (xs) => [...xs].sort((a, b) => a.rank - b.rank).map((i) => ({ t: i.title, r: i.rating }));
   const body = { movies: pack(movies), shows: pack(shows), unwatched: unwatchedShows };
   localStorage.setItem(EDITS_KEY, JSON.stringify(body));
-  if (syncOn) {
-    // Sent as text/plain so the Apps Script web app never sees a preflight.
-    fetch(SYNC.url, { method: "POST", body: JSON.stringify({ token: SYNC.token, ...body }) })
-      .then((r) => r.json())
-      .then((res) => { if (!res.ok) throw new Error(res.error); })
-      .catch((err) => console.warn("sheet sync: save failed —", err));
-  }
+  if (!syncOn) return;
+  const seq = ++saveSeq;
+  // The POST's own response is unreliable; what matters is what a fresh read
+  // of the sheet says. Skip verification if a newer save started meanwhile.
+  fetch(SYNC.url, { method: "POST", body: JSON.stringify({ token: SYNC.token, ...body }) })
+    .catch(() => {})
+    .then(() => new Promise((r) => setTimeout(r, 2000)))
+    .then(() => fetchLive())
+    .then((live) => {
+      if (seq !== saveSeq) return;
+      const stored = JSON.stringify({ movies: live.movies, shows: live.shows, unwatched: live.unwatched });
+      if (stored !== JSON.stringify(body))
+        console.warn("sheet sync: the sheet does not match the last save — edit may not have stuck");
+    })
+    .catch((err) => console.warn("sheet sync: could not verify save —", err));
 }
 
 // Expected ratings for the Coming Up slate, also browser-local. Titles with
@@ -753,8 +774,7 @@ document.querySelector("nav.tabs").addEventListener("click", (e) => {
 // With sync configured, the sheet is the source of truth: pull the live
 // rankings on load (the localStorage copy already shown is just a cache).
 if (syncOn) {
-  fetch(`${SYNC.url}?token=${encodeURIComponent(SYNC.token)}`)
-    .then((r) => r.json())
+  fetchLive()
     .then((live) => {
       if (!live.ok) throw new Error(live.error);
       if (applyPack(live)) {

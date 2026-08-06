@@ -1,8 +1,8 @@
-// Optional cross-device sync through the Google Sheet.
-// Deploy scripts/sheet-webapp.gs (setup steps are at the top of that file),
-// then paste the web app's /exec URL and your token here. While url is empty
-// the site behaves as before: edits stay in this browser only.
+// Cross-device sync through the Google Sheet.
+// The web app (scripts/sheet-webapp.gs) is deployed from the sheet's Apps
+// Script editor; this is its /exec URL and shared token. Clear url to go
+// back to browser-local edits.
 const SYNC = {
-  url: "",
-  token: "",
+  url: "https://script.google.com/macros/s/AKfycbxuCLdv2UfBFzxyoG4d_dnk7q0vlyJ5r9560dg0JA969BPxXFz-2wVFgIe554b1GrJ0/exec",
+  token: "marvel",
 };
