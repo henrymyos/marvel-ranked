@@ -211,23 +211,58 @@ function makeDraggable(container, list) {
   });
 }
 
-// An upcoming title with a pick-your-own expected rating. The select is the
-// colored score cell: "?" until a guess is made.
+// An upcoming title with a pick-your-own expected rating. The score cell is a
+// button ("?" until a guess is made) that opens a color-coded picker.
 function guessRow(title) {
   const g = guesses[title];
   const c = g != null ? ratingColor(g) : null;
-  const opts = Array.from({ length: 11 }, (_, i) => 10 - i)
-    .map((r) => `<option value="${r}"${g === r ? " selected" : ""}>${r}</option>`).join("");
   return `<div class="row">
     <span class="rank">–</span>
     <span class="cellbox${c ? "" : " unwatched"}"${c ? ` style="background:${c.bg};color:${c.ink}"` : ""}>
       <span class="title">${title}</span>
-      <select class="guess" data-title="${title}" title="what I expect to rate it">
-        <option value=""${g == null ? " selected" : ""}>?</option>${opts}
-      </select>
+      <button class="guess" data-title="${title}" title="what I expect to rate it">${g ?? "?"}</button>
     </span>
   </div>`;
 }
+
+// One shared picker popup, styled like the site: a grid of rating chips in
+// their scale colors, plus "?" to clear the guess.
+let guessPop = null;
+function closeGuessPop() { guessPop?.remove(); guessPop = null; }
+
+function openGuessPop(btn) {
+  closeGuessPop();
+  const title = btn.dataset.title;
+  const cur = guesses[title];
+  guessPop = document.createElement("div");
+  guessPop.className = "guess-pop";
+  guessPop.innerHTML = Array.from({ length: 11 }, (_, i) => 10 - i).map((r) => {
+    const c = RATING_COLORS[r];
+    return `<button class="opt${cur === r ? " sel" : ""}" data-r="${r}"
+      style="background:${c.bg};color:${c.ink}">${r}</button>`;
+  }).join("") + `<button class="opt clear${cur == null ? " sel" : ""}">?</button>`;
+  guessPop.addEventListener("click", (e) => {
+    const opt = e.target.closest(".opt");
+    if (!opt) return;
+    if ("r" in opt.dataset) guesses[title] = Number(opt.dataset.r);
+    else delete guesses[title];
+    localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
+    closeGuessPop();
+    renderRankings();
+  });
+  document.body.appendChild(guessPop);
+  const b = btn.getBoundingClientRect();
+  const x = Math.max(8, Math.min(b.right - guessPop.offsetWidth, window.innerWidth - guessPop.offsetWidth - 8));
+  let y = b.bottom + 6;
+  if (y + guessPop.offsetHeight > window.innerHeight - 8) y = b.top - guessPop.offsetHeight - 6;
+  guessPop.style.left = `${x}px`;
+  guessPop.style.top = `${y}px`;
+}
+
+document.addEventListener("pointerdown", (e) => {
+  if (guessPop && !guessPop.contains(e.target) && !e.target.closest("button.guess")) closeGuessPop();
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeGuessPop(); });
 
 function comingUpPanel(titles, kind) {
   return `<div class="panel"><h2>Coming up <span class="note">${titles.length} ${kind} · pick an expected rating</span></h2>
@@ -236,6 +271,7 @@ function comingUpPanel(titles, kind) {
 }
 
 function renderRankings() {
+  closeGuessPop();
   const edited = localStorage.getItem(EDITS_KEY) !== null;
   const upMovies = UPCOMING.filter((t) => !isUpcomingShow(t));
   const upShows = UPCOMING.filter(isUpcomingShow);
@@ -272,14 +308,8 @@ function renderRankings() {
     </div>`;
   $("#view").querySelectorAll(".ranklist").forEach((el) =>
     makeDraggable(el, el.dataset.kind === "movies" ? movies : shows));
-  $("#view").querySelectorAll("select.guess").forEach((sel) =>
-    sel.addEventListener("change", () => {
-      const t = sel.dataset.title;
-      if (sel.value === "") delete guesses[t];
-      else guesses[t] = Number(sel.value);
-      localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
-      renderRankings();
-    }));
+  $("#view").querySelectorAll("button.guess").forEach((btn) =>
+    btn.addEventListener("click", () => openGuessPop(btn)));
   $("#reset-edits")?.addEventListener("click", (e) => {
     e.preventDefault();
     localStorage.removeItem(EDITS_KEY);
