@@ -17,7 +17,7 @@
 
 const TOKEN = "change-me";
 
-const COLS = { A: 1, B: 2, H: 8, K: 11, O: 15, P: 16 };
+const COLS = { A: 1, B: 2, D: 4, E: 5, F: 6, H: 8, K: 11, O: 15, P: 16 };
 
 function sheet_() { return SpreadsheetApp.getActive().getSheets()[0]; }
 
@@ -87,6 +87,15 @@ function doPost(e) {
     });
     writeRank_(sh, COLS.H, (body.movies || []).map(function (m) { return m.t; }));
     writeRank_(sh, COLS.K, (body.shows || []).map(function (s) { return s.t; }));
+    // Keep the per-phase movie rating list (E) and average (F) in step. The
+    // site computes them, since phases only exist in data.js.
+    (body.phases || []).forEach(function (ph) {
+      var row = colValues_(sh, COLS.D).filter(function (c) { return c.value === ph.label; })[0];
+      if (row) {
+        sh.getRange(row.row, COLS.E).setValue(String(ph.list));
+        sh.getRange(row.row, COLS.F).setValue(Number(ph.avg));
+      }
+    });
   } finally {
     lock.releaseLock();
   }

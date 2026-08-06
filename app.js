@@ -87,8 +87,18 @@ let saveSeq = 0;
 
 function saveEdits() {
   const pack = (xs) => [...xs].sort((a, b) => a.rank - b.rank).map((i) => ({ t: i.title, r: i.rating }));
-  const body = { movies: pack(movies), shows: pack(shows), unwatched: unwatchedShows };
-  localStorage.setItem(EDITS_KEY, JSON.stringify(body));
+  // The sheet keeps a per-phase movie rating list and average (D/E/F rows);
+  // recompute them here so the web app can keep those cells in step.
+  const phases = [1, 2, 3, 4, 5, 6].map((p) => {
+    const xs = movies.filter((m) => m.phase === p)
+      .sort((a, b) => (a.release ?? Infinity) - (b.release ?? Infinity))
+      .map((m) => m.rating);
+    return xs.length ? { label: `Phase ${p}`, list: xs.join(", "), avg: fmt(avg(xs)) } : null;
+  }).filter(Boolean);
+  const body = { movies: pack(movies), shows: pack(shows), unwatched: unwatchedShows, phases };
+  localStorage.setItem(EDITS_KEY, JSON.stringify({
+    movies: body.movies, shows: body.shows, unwatched: body.unwatched,
+  }));
   if (!syncOn) return;
   const seq = ++saveSeq;
   // The POST's own response is unreliable; what matters is what a fresh read
@@ -100,7 +110,8 @@ function saveEdits() {
     .then((live) => {
       if (seq !== saveSeq) return;
       const stored = JSON.stringify({ movies: live.movies, shows: live.shows, unwatched: live.unwatched });
-      if (stored !== JSON.stringify(body))
+      const sent = JSON.stringify({ movies: body.movies, shows: body.shows, unwatched: body.unwatched });
+      if (stored !== sent)
         console.warn("sheet sync: the sheet does not match the last save — edit may not have stuck");
     })
     .catch((err) => console.warn("sheet sync: could not verify save —", err));
@@ -792,25 +803,23 @@ function renderVsSource(id) {
 }
 
 // The pre-Disney+ era, parked on its own page: no ratings, no effect on any
-// stats — just the watchlist grouped by series until a decision is made.
+// stats — the watchlist in release order, split by phase, until a decision
+// is made.
 function renderLegacy() {
-  const groups = [];
-  for (const title of LEGACY_SHOWS) {
-    const series = title.replace(/ Season \d+$/, "");
-    let g = groups.find((x) => x.name === series);
-    if (!g) groups.push(g = { name: series, titles: [] });
-    g.titles.push(title);
-  }
+  const phases = [...new Set(LEGACY_SHOWS.map((s) => s.phase))].filter((p) => p != null);
   $("#view").innerHTML = `
     <div class="panel legacywrap">
       <h2>Legacy TV <span class="note">${LEGACY_SHOWS.length} seasons from the pre-Disney+ era —
         parked here until they're watched &amp; ranked</span></h2>
-      ${groups.map((g) => `
+      ${phases.map((p) => {
+        const entries = LEGACY_SHOWS.filter((s) => s.phase === p);
+        return `
         <section class="phase-block">
-          <h3 style="--phase:#8a8781"><span class="dot"></span>${g.name}
-            <span class="note">${g.titles.length} season${g.titles.length === 1 ? "" : "s"}</span></h3>
-          <div class="covers">${g.titles.map((t) => coverCard({ title: t, phase: null, rating: null })).join("")}</div>
-        </section>`).join("")}
+          <h3 style="--phase:${PHASE_COLORS[p]}"><span class="dot"></span>Phase ${p}
+            <span class="note">${entries.length} season${entries.length === 1 ? "" : "s"}</span></h3>
+          <div class="covers">${entries.map((s) => coverCard({ title: s.title, phase: p, rating: null })).join("")}</div>
+        </section>`;
+      }).join("")}
     </div>`;
 }
 
