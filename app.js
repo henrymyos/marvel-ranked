@@ -181,7 +181,9 @@ function coverCard(item) {
 }
 
 function releaseGallery(items, heading) {
-  items = items.filter((i) => i.phase != null);
+  // The shows array is rebuilt in rank order whenever edits are applied, so
+  // release views must sort by release position themselves.
+  items = items.filter((i) => i.phase != null).sort((a, b) => a.release - b.release);
   const phases = [...new Set(items.map((i) => i.phase))];
   return `<div class="panel">
     <h2>${heading} <span class="note">release order</span></h2>
@@ -467,7 +469,7 @@ function columnChart({ groups, max = 10, ticks = [0, 5, 10] }) {
 }
 
 function timelineChart(items) {
-  items = items.filter((i) => i.phase != null);
+  items = items.filter((i) => i.phase != null).sort((a, b) => a.release - b.release);
   const phases = [...new Set(items.map((i) => i.phase))];
   return columnChart({
     groups: phases.map((p) => ({
