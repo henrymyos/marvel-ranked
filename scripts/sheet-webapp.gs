@@ -117,13 +117,16 @@ function doPost(e) {
     if (body.guesses && typeof body.guesses === "object") {
       PropertiesService.getScriptProperties().setProperty("guesses", JSON.stringify(body.guesses));
     }
-    // Keep the per-phase movie rating list (E) and average (F) in step. The
-    // site computes them, since phases only exist in data.js.
-    (body.phases || []).forEach(function (ph) {
-      var row = colValues_(sh, COLS.D).filter(function (c) { return c.value === ph.label; })[0];
+    // Keep the per-phase and per-franchise rating lists (E) and averages (F)
+    // in step. The site computes both, since phases and franchise membership
+    // only exist in data.js.
+    var dRows = {};
+    colValues_(sh, COLS.D).forEach(function (c) { if (!dRows[c.value]) dRows[c.value] = c.row; });
+    (body.phases || []).concat(body.franchises || []).forEach(function (entry) {
+      var row = dRows[entry.label];
       if (row) {
-        sh.getRange(row.row, COLS.E).setValue(String(ph.list));
-        sh.getRange(row.row, COLS.F).setValue(Number(ph.avg));
+        sh.getRange(row, COLS.E).setValue(String(entry.list));
+        sh.getRange(row, COLS.F).setValue(Number(entry.avg));
       }
     });
   } finally {

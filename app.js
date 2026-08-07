@@ -96,9 +96,15 @@ function saveEdits() {
       .map((m) => m.rating);
     return xs.length ? { label: `Phase ${p}`, list: xs.join(", "), avg: fmt(avg(xs)) } : null;
   }).filter(Boolean);
+  // Franchise rows (same D/E/F block) update the same way, from the members
+  // the site derives by title.
+  const franchises = FRANCHISES.map((f) => {
+    const ratings = franchiseRatings(f.name);
+    return ratings.length ? { label: f.name, list: ratings.join(", "), avg: fmt(avg(ratings)) } : null;
+  }).filter(Boolean);
   // Guesses ride along on every save; the web app parks them in its own
   // key-value store (they have no sensible home in the sheet's cells).
-  const body = { movies: pack(movies), shows: pack(shows), unwatched: unwatchedShows, phases, guesses };
+  const body = { movies: pack(movies), shows: pack(shows), unwatched: unwatchedShows, phases, franchises, guesses };
   localStorage.setItem(EDITS_KEY, JSON.stringify({
     movies: body.movies, shows: body.shows, unwatched: body.unwatched,
   }));
