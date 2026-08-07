@@ -17,9 +17,34 @@
 
 const TOKEN = "change-me";
 
-const COLS = { A: 1, B: 2, D: 4, E: 5, F: 6, H: 8, K: 11, O: 15, P: 16 };
-
 function sheet_() { return SpreadsheetApp.getActive().getSheets()[0]; }
+
+// Columns move as the sheet evolves, so locate them by content on each call:
+// the two "Overall" headers mark the rank columns, the shows release column
+// is the one dominated by show titles, and "Phase 1" marks the averages.
+function cols_(sh) {
+  var last = sh.getLastColumn();
+  var header = sh.getRange(1, 1, 1, last).getValues()[0].map(function (v) { return String(v).trim(); });
+  var overall = [];
+  for (var c = 0; c < last; c++) if (header[c] === "Overall") overall.push(c + 1);
+  var H = overall[0], K = overall[1];
+  var kSet = {};
+  colValues_(sh, K).forEach(function (x) { if (x.value !== "Overall") kSet[x.value] = true; });
+  var kCount = Object.keys(kSet).length;
+  var O = -1, bestHits = 0;
+  for (var c2 = 1; c2 <= last; c2++) {
+    if (c2 === 1 || c2 === H || c2 === K) continue;
+    var vals = colValues_(sh, c2);
+    if (!vals.length) continue;
+    var hits = vals.filter(function (x) { return kSet[x.value]; }).length;
+    if (hits >= kCount / 2 && hits / vals.length >= 0.5 && hits > bestHits) { bestHits = hits; O = c2; }
+  }
+  var D = -1;
+  for (var c3 = 1; c3 <= last && D === -1; c3++) {
+    if (colValues_(sh, c3).some(function (x) { return x.value === "Phase 1"; })) D = c3;
+  }
+  return { A: 1, B: 2, D: D, E: D + 1, F: D + 2, H: H, K: K, O: O, P: O + 1 };
+}
 
 function colValues_(sh, col) {
   return sh.getRange(1, col, sh.getLastRow(), 1).getValues()
@@ -32,6 +57,7 @@ function colValues_(sh, col) {
 function doGet(e) {
   if (((e && e.parameter.token) || "") !== TOKEN) return json_({ ok: false, error: "bad token" });
   const sh = sheet_();
+  const COLS = cols_(sh);
   const bVals = sh.getRange(1, COLS.B, sh.getLastRow(), 1).getValues();
   const overall = {};
   colValues_(sh, COLS.A).forEach(function (c) {
@@ -74,6 +100,7 @@ function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
   try {
+    const COLS = cols_(sh);
     const aRow = {}, oRow = {};
     colValues_(sh, COLS.A).forEach(function (c) { aRow[c.value] = c.row; });
     colValues_(sh, COLS.O).forEach(function (c) { oRow[c.value] = c.row; });

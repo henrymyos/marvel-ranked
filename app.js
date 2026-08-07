@@ -3,8 +3,8 @@ const $ = (sel) => document.querySelector(sel);
 const movieRank = new Map(MOVIE_RANK_ORDER.map((t, i) => [t, i + 1]));
 const showRank = new Map(SHOW_RANK_ORDER.map((t, i) => [t, i + 1]));
 
-const movies = MOVIES.map((m, i) => ({ ...m, type: "movie", release: i + 1, rank: movieRank.get(m.title) }));
-const shows = SHOWS.map((s, i) => ({ ...s, type: "show", release: i + 1, rank: showRank.get(s.title) }));
+const movies = MOVIES.map((m, i) => ({ ...m, type: "movie", release: m.release ?? i + 1, rank: movieRank.get(m.title) }));
+const shows = SHOWS.map((s, i) => ({ ...s, type: "show", release: s.release ?? i + 1, rank: showRank.get(s.title) }));
 
 const avg = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2).replace(/0$/, "").replace(/\.0$/, "");
@@ -19,7 +19,7 @@ const EDITS_KEY = "marvelRankedEdits";
 // phase/year stay null and phase- and year-based views skip it.
 let unwatchedShows = UNWATCHED_SHOWS.map((u) => u.title);
 const SHOW_META = new Map(shows.map((s) => [s.title, { ...s }]));
-const UNWATCHED_META = new Map(UNWATCHED_SHOWS.map((u) => [u.title, { ...u, type: "show", release: null }]));
+const UNWATCHED_META = new Map(UNWATCHED_SHOWS.map((u) => [u.title, { ...u, type: "show", release: u.release ?? null }]));
 const ALL_SHOW_TITLES = new Set([...shows.map((s) => s.title), ...unwatchedShows]);
 const promotedShow = (title) => {
   const meta = SHOW_META.get(title) ?? UNWATCHED_META.get(title);
