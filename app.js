@@ -95,7 +95,9 @@ function saveEdits() {
       .map((m) => m.rating);
     return xs.length ? { label: `Phase ${p}`, list: xs.join(", "), avg: fmt(avg(xs)) } : null;
   }).filter(Boolean);
-  const body = { movies: pack(movies), shows: pack(shows), unwatched: unwatchedShows, phases };
+  // Guesses ride along on every save; the web app parks them in its own
+  // key-value store (they have no sensible home in the sheet's cells).
+  const body = { movies: pack(movies), shows: pack(shows), unwatched: unwatchedShows, phases, guesses };
   localStorage.setItem(EDITS_KEY, JSON.stringify({
     movies: body.movies, shows: body.shows, unwatched: body.unwatched,
   }));
@@ -387,6 +389,7 @@ function openGuessPop(btn) {
     if ("r" in opt.dataset) guesses[title] = Number(opt.dataset.r);
     else delete guesses[title];
     localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
+    saveEdits();
     closeGuessPop();
     renderRankings();
   });
@@ -850,10 +853,18 @@ if (syncOn) {
   fetchLive()
     .then((live) => {
       if (!live.ok) throw new Error(live.error);
-      if (applyPack(live)) {
+      const packApplied = applyPack(live);
+      if (packApplied) {
         localStorage.setItem(EDITS_KEY, JSON.stringify({
           movies: live.movies, shows: live.shows, unwatched: live.unwatched,
         }));
+      }
+      const haveGuesses = live.guesses && typeof live.guesses === "object";
+      if (haveGuesses) {
+        guesses = live.guesses;
+        localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
+      }
+      if (packApplied || haveGuesses) {
         views[currentView]();
         updateBalanceAlert();
       }

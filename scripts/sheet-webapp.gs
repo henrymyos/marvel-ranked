@@ -50,6 +50,8 @@ function doGet(e) {
     .filter(function (v) { return v !== "Overall"; });
   const showRank = colValues_(sh, COLS.K).map(function (c) { return c.value; })
     .filter(function (v) { return v !== "Overall"; });
+  var guesses = {};
+  try { guesses = JSON.parse(PropertiesService.getScriptProperties().getProperty("guesses") || "{}"); } catch (err) {}
   return json_({
     ok: true,
     movies: movieRank.map(function (t) { return { t: t, r: overall[t] != null ? overall[t] : null }; }),
@@ -57,6 +59,7 @@ function doGet(e) {
       return { t: t, r: showRating[t] != null ? showRating[t] : (overall[t] != null ? overall[t] : null) };
     }),
     unwatched: unwatched,
+    guesses: guesses,
   });
 }
 
@@ -74,19 +77,28 @@ function doPost(e) {
     const aRow = {}, oRow = {};
     colValues_(sh, COLS.A).forEach(function (c) { aRow[c.value] = c.row; });
     colValues_(sh, COLS.O).forEach(function (c) { oRow[c.value] = c.row; });
-    (body.movies || []).forEach(function (m) {
-      if (aRow[m.t]) sh.getRange(aRow[m.t], COLS.B).setValue(m.r);
-    });
-    (body.shows || []).forEach(function (s) {
-      if (oRow[s.t]) sh.getRange(oRow[s.t], COLS.P).setValue(s.r);
-      if (aRow[s.t]) sh.getRange(aRow[s.t], COLS.B).setValue(s.r);
-    });
+    // Only touch ratings and rank columns when the payload actually carries
+    // them — a partial save must never clear the Overall lists.
+    if (Array.isArray(body.movies) && body.movies.length) {
+      body.movies.forEach(function (m) {
+        if (aRow[m.t]) sh.getRange(aRow[m.t], COLS.B).setValue(m.r);
+      });
+      writeRank_(sh, COLS.H, body.movies.map(function (m) { return m.t; }));
+    }
+    if (Array.isArray(body.shows) && body.shows.length) {
+      body.shows.forEach(function (s) {
+        if (oRow[s.t]) sh.getRange(oRow[s.t], COLS.P).setValue(s.r);
+        if (aRow[s.t]) sh.getRange(aRow[s.t], COLS.B).setValue(s.r);
+      });
+      writeRank_(sh, COLS.K, body.shows.map(function (s) { return s.t; }));
+    }
     (body.unwatched || []).forEach(function (t) {
       if (oRow[t]) sh.getRange(oRow[t], COLS.P).clearContent();
       if (aRow[t]) sh.getRange(aRow[t], COLS.B).clearContent();
     });
-    writeRank_(sh, COLS.H, (body.movies || []).map(function (m) { return m.t; }));
-    writeRank_(sh, COLS.K, (body.shows || []).map(function (s) { return s.t; }));
+    if (body.guesses && typeof body.guesses === "object") {
+      PropertiesService.getScriptProperties().setProperty("guesses", JSON.stringify(body.guesses));
+    }
     // Keep the per-phase movie rating list (E) and average (F) in step. The
     // site computes them, since phases only exist in data.js.
     (body.phases || []).forEach(function (ph) {
