@@ -64,6 +64,7 @@ const COVERS = {
   "Marvel Zombies": "https://upload.wikimedia.org/wikipedia/en/1/1a/Marvel_Zombies_%28TV_series%29_logo.png",
   "Daredevil: Born Again Season 2": "https://upload.wikimedia.org/wikipedia/en/d/d9/Daredevil_Born_Again_logo.jpeg",
   "X-Men '97 Season 1": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/X-Men_%2797_logo.png/500px-X-Men_%2797_logo.png",
+  "X-Men '97 Season 2": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/X-Men_%2797_logo.png/500px-X-Men_%2797_logo.png",
   "Your Friendly Neighborhood Spider-Man": "https://upload.wikimedia.org/wikipedia/en/a/a8/Your_Friendly_Neighborhood_Spider-Man_logo.png",
   "Agents of SHIELD Season 1": "https://upload.wikimedia.org/wikipedia/en/5/53/Agents_of_S.H.I.E.L.D._season_1_poster.jpeg",
   "Agents of SHIELD Season 2": "https://upload.wikimedia.org/wikipedia/en/5/5e/Agents_of_S.H.I.E.L.D._season_2_poster.jpg",

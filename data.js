@@ -103,6 +103,7 @@ const SHOWS = [
   { title: "Loki Season 2", rating: 10, phase: 5, year: 2023, release: 45 },
   { title: "What If Season 2", rating: 3, phase: 5, year: 2023, release: 47 },
   { title: "Echo", rating: 3, phase: 5, year: 2024, release: 48 },
+  { title: "Agatha All Along", rating: 5, phase: 5, year: 2024, release: 51 },
   { title: "Ironheart", rating: 5, phase: 5, year: 2025, release: 57 },
   { title: "Wonder Man", rating: 6, phase: 6, year: 2026, release: 61 },
 ];
@@ -116,9 +117,10 @@ const SHOW_RANK_ORDER = [
   "WandaVision",
   "The Falcon and the Winter Soldier",
   "Werewolf By Night",
-  "Secret Invasion",
+  "Agatha All Along",
   "Ironheart",
   "Ms. Marvel",
+  "Secret Invasion",
   "What If Season 1",
   "Echo",
   "Guardians Holiday Special",
@@ -130,7 +132,6 @@ const SHOW_RANK_ORDER = [
 
 const UNWATCHED_SHOWS = [
   { title: "X-Men '97 Season 1", phase: 5, year: 2024, release: 49 },
-  { title: "Agatha All Along", phase: 5, year: 2024, release: 51 },
   { title: "What If Season 3", phase: 5, year: 2024, release: 52 },
   { title: "Your Friendly Neighborhood Spider-Man", phase: 5, year: 2025, release: 53 },
   { title: "Daredevil: Born Again Season 1", phase: 5, year: 2025, release: 55 },
@@ -138,6 +139,7 @@ const UNWATCHED_SHOWS = [
   { title: "Marvel Zombies", phase: 5, year: 2025, release: 60 },
   { title: "Daredevil: Born Again Season 2", phase: 6, year: 2026, release: 62 },
   { title: "The Punisher: One Last Kill", phase: 6, year: 2026, release: 63 },
+  { title: "X-Men '97 Season 2", phase: 6, year: 2026, release: 64 },
 ];
 
 const UPCOMING = [

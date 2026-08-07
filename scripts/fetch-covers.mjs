@@ -67,6 +67,7 @@ const WIKI = {
   "Daredevil: Born Again Season 2": "Daredevil: Born Again",
   "The Punisher: One Last Kill": "The Punisher (special presentation)",
   "X-Men '97 Season 1": "X-Men '97",
+  "X-Men '97 Season 2": "X-Men '97",
   "Your Friendly Neighborhood Spider-Man": "Your Friendly Neighborhood Spider-Man",
   "Agents of SHIELD Season 1": "Agents of S.H.I.E.L.D. season 1",
   "Agents of SHIELD Season 2": "Agents of S.H.I.E.L.D. season 2",

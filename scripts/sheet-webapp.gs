@@ -103,13 +103,13 @@ function doPost(e) {
       body.movies.forEach(function (m) {
         if (aRow[m.t]) sh.getRange(aRow[m.t], COLS.B).setValue(m.r);
       });
-      writeRank_(sh, COLS.H, body.movies.map(function (m) { return m.t; }));
+      writeRank_(sh, COLS.H, body.movies);
     }
     if (Array.isArray(body.shows) && body.shows.length) {
       body.shows.forEach(function (s) {
         if (aRow[s.t]) sh.getRange(aRow[s.t], COLS.B).setValue(s.r);
       });
-      writeRank_(sh, COLS.K, body.shows.map(function (s) { return s.t; }));
+      writeRank_(sh, COLS.K, body.shows);
     }
     (body.unwatched || []).forEach(function (t) {
       if (aRow[t]) sh.getRange(aRow[t], COLS.B).clearContent();
@@ -132,14 +132,16 @@ function doPost(e) {
   return json_({ ok: true });
 }
 
-function writeRank_(sh, col, titles) {
+// Writes the ranked titles AND their ratings into the adjacent "Rating"
+// column, so the pair can never drift when rows are inserted by hand.
+function writeRank_(sh, col, entries) {
   const header = colValues_(sh, col).filter(function (c) { return c.value === "Overall"; })[0];
   const first = header ? header.row + 1 : 2;
-  const clearRows = Math.max(sh.getLastRow() - first + 1, titles.length);
-  if (clearRows > 0) sh.getRange(first, col, clearRows, 1).clearContent();
-  if (titles.length) {
-    sh.getRange(first, col, titles.length, 1)
-      .setValues(titles.map(function (t) { return [t]; }));
+  const clearRows = Math.max(sh.getLastRow() - first + 1, entries.length);
+  if (clearRows > 0) sh.getRange(first, col, clearRows, 2).clearContent();
+  if (entries.length) {
+    sh.getRange(first, col, entries.length, 2)
+      .setValues(entries.map(function (e) { return [e.t, e.r]; }));
   }
 }
 
