@@ -35,7 +35,8 @@ function applyPack(saved) {
 
   if (Array.isArray(saved.movies) && saved.movies.length === movies.length) {
     const byTitle = new Map(movies.map((i) => [i.title, i]));
-    if (saved.movies.every((e) => byTitle.has(e.t) && Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
+    if (new Set(saved.movies.map((e) => e.t)).size === saved.movies.length &&
+        saved.movies.every((e) => byTitle.has(e.t) && Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
       saved.movies.forEach((e, i) => { const it = byTitle.get(e.t); it.rating = e.r; it.rank = i + 1; });
       applied = true;
     }
@@ -124,6 +125,16 @@ function saveEdits() {
 const GUESS_KEY = "marvelRankedGuesses";
 let guesses = {};
 try { guesses = JSON.parse(localStorage.getItem(GUESS_KEY)) || {}; } catch {}
+
+// Guesses sync on their own so a guess never drags a rankings pack along
+// with it — important when data.js is behind the sheet and the in-memory
+// rankings are stale. (The web app ignores absent fields.)
+function pushGuesses() {
+  localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
+  if (!syncOn) return;
+  fetch(SYNC.url, { method: "POST", body: JSON.stringify({ token: SYNC.token, guesses }) })
+    .catch(() => {});
+}
 
 const UPCOMING_SHOW_HINTS = ["VisionQuest"];
 const isUpcomingShow = (t) => /season\b/i.test(t) || UPCOMING_SHOW_HINTS.includes(t);
@@ -254,6 +265,7 @@ function rankSeq(items) {
 }
 
 function avgChip(items) {
+  if (!items.length) return "";
   const a = avg(items.map((i) => i.rating));
   return `<span class="avgchip${a === 5 ? "" : " off"}" title="average rating — the goal is exactly 5">avg ${fmt(a)}</span>`;
 }
@@ -343,7 +355,9 @@ function makeDraggable(containers, onCommit) {
         window.removeEventListener("pointerup", finish);
         window.removeEventListener("pointercancel", finish);
         row.classList.remove("dragging");
-        if (ev.type === "pointerup") onCommit();
+        // If a re-render replaced the list mid-drag (e.g. the boot sync
+        // landed), the drop would commit from a detached DOM — discard it.
+        if (ev.type === "pointerup" && container.isConnected) onCommit();
         else renderRankings();
       };
       window.addEventListener("pointermove", onMove);
@@ -388,8 +402,7 @@ function openGuessPop(btn) {
     if (!opt) return;
     if ("r" in opt.dataset) guesses[title] = Number(opt.dataset.r);
     else delete guesses[title];
-    localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
-    saveEdits();
+    pushGuesses();
     closeGuessPop();
     renderRankings();
   });
@@ -760,7 +773,7 @@ function renderVsSource(id) {
   const tiles = [
     { label: "Correlation", value: r.toFixed(2), sub: `Pearson r · ${pairs.length} movies` },
     { label: "Rank agreement", value: rho.toFixed(2), sub: "Spearman ρ" },
-    { label: "Tougher grader", value: `−${fmt(gap)}`, sub: `my avg ${fmt(avg(mine))} vs ${cfg.col} ${fmt(avg(theirs))}` },
+    { label: gap >= 0 ? "Tougher grader" : "Softer grader", value: `${gap >= 0 ? "−" : "+"}${fmt(Math.abs(gap))}`, sub: `my avg ${fmt(avg(mine))} vs ${cfg.col} ${fmt(avg(theirs))}` },
   ];
 
   // Stretch the source's compressed scale onto mine: its lowest-rated movie
@@ -865,7 +878,7 @@ if (syncOn) {
       const haveGuesses = live.guesses && typeof live.guesses === "object";
       if (haveGuesses) {
         if (Object.keys(live.guesses).length === 0 && Object.keys(guesses).length > 0) {
-          saveEdits();
+          pushGuesses();
         } else {
           guesses = live.guesses;
           localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
