@@ -129,8 +129,10 @@ const SHOW_RANK_ORDER = [
 ];
 
 const UNWATCHED_SHOWS = [
+  { title: "X-Men '97 Season 1", phase: 5, year: 2024, release: 49 },
   { title: "Agatha All Along", phase: 5, year: 2024, release: 51 },
   { title: "What If Season 3", phase: 5, year: 2024, release: 52 },
+  { title: "Your Friendly Neighborhood Spider-Man", phase: 5, year: 2025, release: 53 },
   { title: "Daredevil: Born Again Season 1", phase: 5, year: 2025, release: 55 },
   { title: "Eyes of Wakanda", phase: 5, year: 2025, release: 59 },
   { title: "Marvel Zombies", phase: 5, year: 2025, release: 60 },

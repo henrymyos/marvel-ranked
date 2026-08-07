@@ -63,6 +63,8 @@ const COVERS = {
   "Eyes of Wakanda": "https://upload.wikimedia.org/wikipedia/en/thumb/f/fd/Eyes_of_Wakanda_logo.jpg/500px-Eyes_of_Wakanda_logo.jpg",
   "Marvel Zombies": "https://upload.wikimedia.org/wikipedia/en/1/1a/Marvel_Zombies_%28TV_series%29_logo.png",
   "Daredevil: Born Again Season 2": "https://upload.wikimedia.org/wikipedia/en/d/d9/Daredevil_Born_Again_logo.jpeg",
+  "X-Men '97 Season 1": "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6a/X-Men_%2797_logo.png/500px-X-Men_%2797_logo.png",
+  "Your Friendly Neighborhood Spider-Man": "https://upload.wikimedia.org/wikipedia/en/a/a8/Your_Friendly_Neighborhood_Spider-Man_logo.png",
   "Agents of SHIELD Season 1": "https://upload.wikimedia.org/wikipedia/en/5/53/Agents_of_S.H.I.E.L.D._season_1_poster.jpeg",
   "Agents of SHIELD Season 2": "https://upload.wikimedia.org/wikipedia/en/5/5e/Agents_of_S.H.I.E.L.D._season_2_poster.jpg",
   "Agents of SHIELD Season 3": "https://upload.wikimedia.org/wikipedia/en/b/ba/Agents_of_S.H.I.E.L.D._season_3_poster.jpg",

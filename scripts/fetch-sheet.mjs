@@ -8,11 +8,11 @@
 // File > Download > CSV and pass it with --from.
 //
 // Sheet layout (single tab, gid 0):
-//   A/B  every title in release order + rating; unwatched shows have no rating;
-//        announced titles sit below a blank row after the last rated one
+//   A/B  every title (movies + shows interleaved) in release order + rating;
+//        unwatched shows are unrated rows in their release slots; announced
+//        titles and the legacy-TV block sit below the last rated row
 //   D/E  phase averages, then franchise names + their rating lists
 //   H    movies best -> worst ("Overall")     K  shows best -> worst
-//   O/P  shows in release order + rating, unwatched shows below a gap
 //
 // Phase and year are NOT in the sheet — they are merged from the existing
 // data.js, so new titles get nulls and a warning until filled in by hand.
@@ -66,9 +66,9 @@ const column = (col) =>
   grid.map((_, r) => ({ row: r, value: cell(r, col) })).filter((c) => c.value);
 
 // Columns move as the sheet evolves, so locate everything by content instead
-// of position. A is fixed; the two "Overall" headers mark the rank columns;
-// the shows release column is the one dominated by show titles; "Phase 1"
-// marks the averages/franchise block.
+// of position. Column A is the single master release-order list (movies and
+// shows interleaved, ratings in B, unwatched shows unrated); the two
+// "Overall" headers mark the rank columns; "Phase 1" marks the averages.
 const [A, B] = [0, 1];
 const colCount = Math.max(...grid.map((r) => r.length));
 const overallCols = [];
@@ -80,33 +80,12 @@ const movieRank = column(H).map((c) => c.value).filter((v) => v !== "Overall");
 const showRank = column(K).map((c) => c.value).filter((v) => v !== "Overall");
 const isMovie = new Set(movieRank), isShow = new Set(showRank);
 
-// Shows release column: mostly show titles (ranked ∪ soon-to-be-watched),
-// unlike mixed lists elsewhere — require both high overlap and high purity.
-let O = -1, bestHits = 0;
-for (let c = 0; c < colCount; c++) {
-  if (c === A || c === H || c === K) continue;
-  const vals = column(c);
-  if (!vals.length) continue;
-  const hits = vals.filter((x) => isShow.has(x.value)).length;
-  if (hits >= isShow.size / 2 && hits / vals.length >= 0.5 && hits > bestHits) { bestHits = hits; O = c; }
-}
-if (O === -1) { console.error("could not locate the shows release-order column"); process.exit(1); }
-const P = O + 1;
-
 let D = -1;
 outer: for (let c = 0; c < colCount; c++)
   for (let r = 0; r < grid.length; r++)
     if (cell(r, c) === "Phase 1") { D = c; break outer; }
 if (D === -1) { console.error("could not locate the phase-averages column"); process.exit(1); }
 const E = D + 1;
-
-// Shows: release order + ratings from O/P; the unrated tail is the unwatched list.
-const shows = [], unwatched = [];
-for (const { row, value: title } of column(O)) {
-  const rating = cell(row, P);
-  if (rating !== "") shows.push({ title, rating: Number(rating) });
-  else unwatched.push(title);
-}
 
 // The legacy-TV block is a closed set (the pre-Disney+ era is over), so tail
 // titles are classified by membership in the previous data.js legacy list —
@@ -115,21 +94,28 @@ const prevSrc = readFileSync(DATA_PATH, "utf8");
 const old = new Function(`${prevSrc}; return { MOVIES, SHOWS, UNWATCHED_SHOWS, LEGACY_SHOWS };`)();
 const oldLegacySet = new Set((old.LEGACY_SHOWS ?? []).map((e) => (typeof e === "object" ? e.title : e)));
 
-// Movies: release order from A, keeping only titles ranked as movies in H.
-// Titles after the last rated entry are announced (or legacy TV).
+// One walk down column A classifies everything. At or before the last rated
+// row: H-ranked = movie, K-ranked = show, unrated & unranked = unwatched
+// show. Below the last rated row: legacy TV (by the known set) or announced.
 const colA = column(A);
 const lastRated = colA.findLast((c) => cell(c.row, B) !== "");
-const movies = [], upcoming = [], legacy = [], strays = [];
+const movies = [], shows = [], unwatched = [], upcoming = [], legacy = [], strays = [];
+const seen = new Set(), dupes = [];
 for (const { row, value: title } of colA) {
+  if (seen.has(title)) { dupes.push(title); continue; }
+  seen.add(title);
   if (row > lastRated.row) {
-    if (isShow.has(title) || unwatched.includes(title)) continue; // shows already handled via O/P
     (oldLegacySet.has(title) ? legacy : upcoming).push(title);
     continue;
   }
   const rating = cell(row, B);
   if (isMovie.has(title)) movies.push({ title, rating: Number(rating) });
-  else if (!isShow.has(title) && rating !== "") strays.push(title);
+  else if (isShow.has(title)) shows.push({ title, rating: Number(rating) });
+  else if (rating === "") unwatched.push(title);
+  else strays.push(title);
 }
+if (dupes.length)
+  console.warn("DUPLICATE rows in column A (kept the first, delete the extra in the sheet):\n  " + dupes.join("\n  "));
 
 // Franchises: the D/E rows below the per-phase averages. Rating lists use
 // ", " between watched entries and " : " across mixed watched/planned ones.
@@ -169,7 +155,7 @@ for (const list of [[movies, movieRank], [shows, showRank]])
 // Column A holds every title — movies, shows, unwatched shows interleaved —
 // in true release order, so its row number is the global release position.
 const aPos = {};
-colA.forEach((c) => { aPos[c.value] = c.row; });
+colA.forEach((c) => { if (!(c.value in aPos)) aPos[c.value] = c.row; });
 
 const entry = (e) => `  { title: ${JSON.stringify(e.title)}, rating: ${e.rating}, phase: ${e.phase}, year: ${e.year}, release: ${aPos[e.title] ?? null} },`;
 const name = (t) => `  ${JSON.stringify(t)},`;
