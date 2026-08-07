@@ -859,10 +859,17 @@ if (syncOn) {
           movies: live.movies, shows: live.shows, unwatched: live.unwatched,
         }));
       }
+      // Server guesses win — EXCEPT when the server store is empty and this
+      // device still has some: that's a device with un-migrated (or otherwise
+      // unsaved) guesses, and they must seed the server, never be wiped by it.
       const haveGuesses = live.guesses && typeof live.guesses === "object";
       if (haveGuesses) {
-        guesses = live.guesses;
-        localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
+        if (Object.keys(live.guesses).length === 0 && Object.keys(guesses).length > 0) {
+          saveEdits();
+        } else {
+          guesses = live.guesses;
+          localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
+        }
       }
       if (packApplied || haveGuesses) {
         views[currentView]();
