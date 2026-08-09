@@ -135,16 +135,32 @@ function doPost(e) {
   return json_({ ok: true });
 }
 
+// The sheet color-codes ranked titles by rating; these are its exact fills
+// (rating 0 is white-on-black). Painted together with the values so colors
+// can never drift from the numbers when rows shift.
+var RATING_FILLS = {
+  "10": "#ff00ff", "9": "#b4a7d6", "8": "#9fc5e8", "7": "#4a86e8",
+  "6": "#00ffff", "5": "#00ff00", "4": "#ffff00", "3": "#ff9900",
+  "2": "#ff0000", "1": "#cc4125", "0": "#000000",
+};
+
 // Writes the ranked titles AND their ratings into the adjacent "Rating"
-// column, so the pair can never drift when rows are inserted by hand.
+// column, plus the rating colors, so the trio can never drift when rows
+// are inserted by hand.
 function writeRank_(sh, col, entries) {
   const header = colValues_(sh, col).filter(function (c) { return c.value === "Overall"; })[0];
   const first = header ? header.row + 1 : 2;
   const clearRows = Math.max(sh.getLastRow() - first + 1, entries.length);
-  if (clearRows > 0) sh.getRange(first, col, clearRows, 2).clearContent();
+  if (clearRows > 0) {
+    sh.getRange(first, col, clearRows, 2).clearContent();
+    sh.getRange(first, col, clearRows, 1).setBackground(null).setFontColor(null);
+  }
   if (entries.length) {
     sh.getRange(first, col, entries.length, 2)
       .setValues(entries.map(function (e) { return [e.t, e.r]; }));
+    sh.getRange(first, col, entries.length, 1)
+      .setBackgrounds(entries.map(function (e) { return [RATING_FILLS[String(e.r)] || null]; }))
+      .setFontColors(entries.map(function (e) { return [e.r === 0 ? "#ffffff" : null]; }));
   }
 }
 
