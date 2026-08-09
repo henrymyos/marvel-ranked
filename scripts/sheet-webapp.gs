@@ -125,8 +125,10 @@ function doPost(e) {
     (body.phases || []).concat(body.franchises || []).forEach(function (entry) {
       var row = dRows[entry.label];
       if (row) {
-        sh.getRange(row, COLS.E).setValue(String(entry.list));
-        sh.getRange(row, COLS.F).setValue(Number(entry.avg));
+        // Plain-text format first: otherwise Sheets parses lists like
+        // "8, 3, 4" as month/day/year and stores a date.
+        sh.getRange(row, COLS.E).setNumberFormat("@").setValue(String(entry.list));
+        sh.getRange(row, COLS.F).setNumberFormat("0.##").setValue(Number(entry.avg));
       }
     });
   } finally {
