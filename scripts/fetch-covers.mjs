@@ -126,7 +126,7 @@ const OVERRIDES = {
   "The Falcon and the Winter Soldier": "https://upload.wikimedia.org/wikipedia/en/4/40/The_Falcon_and_the_Winter_Soldier_%22New_World_Order%22_poster.jpeg",
   // IMDb's official series poster (the Wikipedia files are episode posters).
   "Hawkeye": "https://m.media-amazon.com/images/M/MV5BOGU5ZDBlOTAtOTZmYS00MWE0LTg0NzktNDcxZGJhN2FhZmM2XkEyXkFqcGc@._V1_FMjpg_UX400_.jpg",
-  "Moon Knight": "https://upload.wikimedia.org/wikipedia/en/9/9a/Moon_Knight_%22The_Goldfish_Problem%22_poster.jpeg",
+  "Moon Knight": "https://m.media-amazon.com/images/M/MV5BNDAzNmYwZjgtNDc3YS00ZDMyLTk0MjktMTg4MGNmNGU3MjlhXkEyXkFqcGc@._V1_FMjpg_UX400_.jpg",
   "Ms. Marvel": "https://upload.wikimedia.org/wikipedia/en/e/e8/Ms._Marvel_%22Generation_Why%22_poster.jpg",
   "Secret Invasion": "https://upload.wikimedia.org/wikipedia/en/5/51/Secret_Invasion_%22Resurrection%22_poster.jpg",
   "Agatha All Along": "https://upload.wikimedia.org/wikipedia/en/9/95/Agatha_All_Along_%22Seekest_Thou_the_Road%22_poster.jpeg",
