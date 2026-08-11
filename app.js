@@ -206,7 +206,7 @@ function coverCard(item) {
     : `<span class="noimg">${item.title.replace(/[^A-Z]/g, "").slice(0, 2) || item.title[0]}</span>`;
   const rated = item.rating != null;
   const c = rated ? ratingColor(item.rating) : null;
-  return `<div class="card" style="--phase:${PHASE_COLORS[item.phase] ?? "#8a8781"}"
+  return `<div class="card" data-detail="${item.title}" style="--phase:${PHASE_COLORS[item.phase] ?? "#8a8781"}"
       title="${item.title} — ${rated ? `${item.rating}/10` : "haven't seen it yet"}">
     ${media}
     <span class="name">${item.title}</span>
@@ -646,6 +646,56 @@ function openShareCard(items, subtitle, filename, limit = 10) {
     }
   });
 }
+
+// Cover-card detail popup: click a poster anywhere the gallery cards appear
+// and get the big-poster profile — rating, rank, phase/year, and the outside
+// scores for movies.
+function openDetail(title) {
+  const inMovies = movies.find((m) => m.title === title);
+  const item = inMovies ?? shows.find((s) => s.title === title);
+  const meta = item ?? UNWATCHED_META.get(title) ?? LEGACY_SHOWS.find((l) => l.title === title);
+  if (!meta) return;
+
+  let status;
+  if (item) {
+    const list = inMovies ? movies : shows;
+    const c = ratingColor(item.rating);
+    status = `<div class="bigscore" style="background:${c.bg};color:${c.ink}">${item.rating}</div>
+      <div class="rankline">#${item.rank} of ${list.length} ${inMovies ? "movies" : "shows"}</div>`;
+  } else {
+    const g = guesses[title];
+    const legacy = !UNWATCHED_META.has(title);
+    status = `<div class="bigscore unknown">?</div>
+      <div class="rankline">${legacy ? "Legacy TV — not ranked" : "Haven't seen it yet"}${g != null ? ` · expecting a ${g}` : ""}</div>`;
+  }
+
+  const facts = [];
+  if (meta.phase != null) facts.push(`Phase ${meta.phase}${meta.year != null ? ` · ${meta.year}` : ""}`);
+  if (inMovies && IMDB[title]) facts.push(`IMDb ${IMDB[title].rating} · ${IMDB[title].votes.toLocaleString()} votes`);
+  if (inMovies && RT[title]) facts.push(`Tomatometer ${RT[title].critics}% · audience ${RT[title].audience}%`);
+
+  const src = COVERS[title];
+  const modal = document.createElement("div");
+  modal.className = "share-modal";
+  modal.innerHTML = `<div class="share-box detail-box">
+    ${src ? `<img class="detail-poster ${src.includes("logo") ? "contain" : ""}" src="${src}" alt="">` : ""}
+    <h3>${title}</h3>
+    ${status}
+    ${facts.map((f) => `<div class="factline">${f}</div>`).join("")}
+    <div class="share-actions"><button class="chip" data-close>Close</button></div>
+  </div>`;
+  document.body.appendChild(modal);
+  const close = () => { modal.remove(); document.removeEventListener("keydown", onKey); };
+  const onKey = (e) => { if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", onKey);
+  modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
+  modal.querySelector("[data-close]").addEventListener("click", close);
+}
+
+document.addEventListener("click", (e) => {
+  const card = e.target.closest(".card[data-detail]");
+  if (card) openDetail(card.dataset.detail);
+});
 
 // Generic column chart: values are encoded by height; the rating color is a
 // redundant channel on top (same scale as every other cell on the site).
