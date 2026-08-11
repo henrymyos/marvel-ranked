@@ -7,7 +7,7 @@ const COVERS = {
   "Moon Knight": "https://m.media-amazon.com/images/M/MV5BNDAzNmYwZjgtNDc3YS00ZDMyLTk0MjktMTg4MGNmNGU3MjlhXkEyXkFqcGc@._V1_FMjpg_UX400_.jpg",
   "Ms. Marvel": "https://upload.wikimedia.org/wikipedia/en/e/e8/Ms._Marvel_%22Generation_Why%22_poster.jpg",
   "Secret Invasion": "https://upload.wikimedia.org/wikipedia/en/5/51/Secret_Invasion_%22Resurrection%22_poster.jpg",
-  "Agatha All Along": "https://upload.wikimedia.org/wikipedia/en/9/95/Agatha_All_Along_%22Seekest_Thou_the_Road%22_poster.jpeg",
+  "Agatha All Along": "https://static.wikia.nocookie.net/marveldatabase/images/0/05/Agatha_All_Along_poster_001.jpg/revision/latest/scale-to-width-down/400",
   "Daredevil: Born Again Season 1": "https://upload.wikimedia.org/wikipedia/en/7/7d/Daredevil_Born_Again_season_1_poster.jpg",
   "Daredevil: Born Again Season 2": "https://upload.wikimedia.org/wikipedia/en/0/02/Daredevil_Born_Again_season_2_poster.jpeg",
   "Guardians Holiday Special": "https://upload.wikimedia.org/wikipedia/en/e/e3/The_Guardians_of_the_Galaxy_Holiday_Special_poster.jpg",
