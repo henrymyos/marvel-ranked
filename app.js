@@ -518,8 +518,8 @@ const loadCover = (title, attempt = 0) => new Promise((resolve) => {
   img.src = COVERS[title] + (attempt ? (COVERS[title].includes("?") ? "&" : "?") + "retry=" + attempt : "");
 });
 
-async function buildShareCard(items, subtitle) {
-  const top = byRank(items).slice(0, 10);
+async function buildShareCard(items, subtitle, limit = 10) {
+  const top = byRank(items).slice(0, limit);
   // Load a few covers at a time instead of all ten at once — a full burst
   // trips Wikipedia's rate limiting and random cards come back blank.
   const imgs = [];
@@ -554,19 +554,22 @@ async function buildShareCard(items, subtitle) {
   ctx.fillText(subtitle, W / 2, 300);
 
   // Covers only, podium layout: #1 big in the middle flanked by #2 and #3,
-  // then 4-7 and 8-10 in grid rows. Rank badges carry the ordering.
+  // then the rest split over two centered grid rows (4/3 for a top 10,
+  // 4/4 for a top 11). Rank badges carry the ordering.
   const cells = [
     { rank: 2, x: 25, y: 495, w: 310, h: 465 },
     { rank: 1, x: 360, y: 420, w: 360, h: 540 },
     { rank: 3, x: 745, y: 495, w: 310, h: 465 },
-    { rank: 4, x: 24, y: 1010, w: 240, h: 360 },
-    { rank: 5, x: 288, y: 1010, w: 240, h: 360 },
-    { rank: 6, x: 552, y: 1010, w: 240, h: 360 },
-    { rank: 7, x: 816, y: 1010, w: 240, h: 360 },
-    { rank: 8, x: 156, y: 1420, w: 240, h: 360 },
-    { rank: 9, x: 420, y: 1420, w: 240, h: 360 },
-    { rank: 10, x: 684, y: 1420, w: 240, h: 360 },
   ];
+  const rest = top.length - 3;
+  const rowA = Math.min(Math.ceil(rest / 2), 4);
+  [[rowA, 1010], [rest - rowA, 1420]].forEach(([n, y], row) => {
+    const gw = n * 240 + (n - 1) * 24;
+    const x0 = (W - gw) / 2;
+    for (let i = 0; i < n; i++) {
+      cells.push({ rank: 4 + row * rowA + i, x: x0 + i * 264, y, w: 240, h: 360 });
+    }
+  });
   for (const cell of cells) {
     const m = top[cell.rank - 1];
     if (!m) continue;
@@ -610,13 +613,13 @@ async function buildShareCard(items, subtitle) {
   return canvas;
 }
 
-function openShareCard(items, subtitle, filename) {
+function openShareCard(items, subtitle, filename, limit = 10) {
   const modal = document.createElement("div");
   modal.className = "share-modal";
   modal.innerHTML = `<div class="share-box"><p class="fineprint">Building your card…</p></div>`;
   document.body.appendChild(modal);
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
-  buildShareCard(items, subtitle).then((canvas) => {
+  buildShareCard(items, subtitle, limit).then((canvas) => {
     const box = modal.querySelector(".share-box");
     let url;
     try {
@@ -1055,7 +1058,7 @@ function renderSpiderman() {
   const order = spidermanOrder();
   $("#view").innerHTML = `
     <div class="panel spiderwrap">
-      <h2>Spider-Man, ranked <span class="note">all ${order.length} movies, every era · drag to reorder</span></h2>
+      <h2>Spider-Man, ranked <button class="avgchip cardbtn" id="spider-card" title="make a shareable top-11 image">top 11 card</button><span class="note">all ${order.length} movies, every era · drag to reorder</span></h2>
       <div class="spiderlist">${order.map((t, i) => {
         const [era, color] = SPIDER_ERAS[t];
         const src = COVERS[t];
@@ -1077,6 +1080,9 @@ function renderSpiderman() {
     pushGuesses();
     renderSpiderman();
   });
+  $("#spider-card")?.addEventListener("click", () =>
+    openShareCard(spidermanOrder().map((t, i) => ({ title: t, rank: i + 1 })),
+      "EVERY SPIDER-MAN MOVIE, RANKED", "marvel-ranked-spiderman.png", 11));
 }
 
 const views = {
