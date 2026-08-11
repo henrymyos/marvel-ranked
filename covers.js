@@ -13,7 +13,7 @@ const COVERS = {
   "Guardians Holiday Special": "https://upload.wikimedia.org/wikipedia/en/e/e3/The_Guardians_of_the_Galaxy_Holiday_Special_poster.jpg",
   "Ironheart": "https://upload.wikimedia.org/wikipedia/en/1/1f/Ironheart_FilmPoster.jpeg",
   "Loki Season 2": "https://upload.wikimedia.org/wikipedia/en/4/4b/Loki_season_2_poster.jpg",
-  "She-Hulk: Attorney at Law": "https://upload.wikimedia.org/wikipedia/en/4/48/She-Hulk_Attorney_at_Law_%22A_Normal_Amount_of_Rage%22_poster.jpg",
+  "She-Hulk: Attorney at Law": "art/she-hulk.jpg",
   "Werewolf By Night": "https://upload.wikimedia.org/wikipedia/en/0/06/Werewolf_by_Night_%28TV_special%29_poster.jpg",
   "What If Season 2": "https://upload.wikimedia.org/wikipedia/en/b/b4/What_If...%3F_season_2_poster.jpeg",
   "X-Men '97 Season 1": "https://upload.wikimedia.org/wikipedia/en/b/bf/X-Men_%2797_season_1_poster.jpg",
