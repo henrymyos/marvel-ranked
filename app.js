@@ -364,7 +364,7 @@ function makeDraggable(containers, onCommit) {
         // If a re-render replaced the list mid-drag (e.g. the boot sync
         // landed), the drop would commit from a detached DOM — discard it.
         if (ev.type === "pointerup" && container.isConnected) onCommit();
-        else renderRankings();
+        else views[currentView]();
       };
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", finish);
@@ -1018,9 +1018,71 @@ function renderLegacy() {
     </div>`;
 }
 
+// Every theatrical Spider-Man, ranked across the eras. This ordering is its
+// own thing — separate from the MCU rankings and their zero-sum averages.
+// It syncs across devices by riding in the guesses store under a reserved
+// key (title lookups never collide with "__spiderman").
+const SPIDERMAN_MOVIES = [
+  "Spider-Man", "Spider-Man 2", "Spider-Man 3",
+  "The Amazing Spider-Man", "The Amazing Spider-Man 2",
+  "Spider-Man: Homecoming", "Spider-Man: Into the Spider-Verse",
+  "Spider-Man: Far From Home", "Spider-Man: No Way Home",
+  "Spider-Man: Across the Spider-Verse", "Spider-Man: Brand New Day",
+];
+const SPIDER_ERAS = {
+  "Spider-Man": ["Tobey Maguire", "#e05252"],
+  "Spider-Man 2": ["Tobey Maguire", "#e05252"],
+  "Spider-Man 3": ["Tobey Maguire", "#e05252"],
+  "The Amazing Spider-Man": ["Andrew Garfield", "#ef9f43"],
+  "The Amazing Spider-Man 2": ["Andrew Garfield", "#ef9f43"],
+  "Spider-Man: Homecoming": ["Tom Holland", "#4a86e8"],
+  "Spider-Man: Far From Home": ["Tom Holland", "#4a86e8"],
+  "Spider-Man: No Way Home": ["Tom Holland", "#4a86e8"],
+  "Spider-Man: Brand New Day": ["Tom Holland", "#4a86e8"],
+  "Spider-Man: Into the Spider-Verse": ["Spider-Verse", "#a05ce8"],
+  "Spider-Man: Across the Spider-Verse": ["Spider-Verse", "#a05ce8"],
+};
+
+function spidermanOrder() {
+  const saved = guesses.__spiderman;
+  if (Array.isArray(saved) && saved.length === SPIDERMAN_MOVIES.length &&
+      new Set(saved).size === saved.length && saved.every((t) => SPIDERMAN_MOVIES.includes(t)))
+    return [...saved];
+  return [...SPIDERMAN_MOVIES];
+}
+
+function renderSpiderman() {
+  const order = spidermanOrder();
+  $("#view").innerHTML = `
+    <div class="panel spiderwrap">
+      <h2>Spider-Man, ranked <span class="note">all ${order.length} movies, every era · drag to reorder</span></h2>
+      <div class="spiderlist">${order.map((t, i) => {
+        const [era, color] = SPIDER_ERAS[t];
+        const src = COVERS[t];
+        return `<div class="spiderrow" data-drag data-title="${t}">
+          <span class="rank">${i + 1}</span>
+          <div class="card" style="--phase:${color}">
+            ${src ? `<img src="${src}" alt="" loading="lazy">` : `<span class="noimg">SM</span>`}
+            <span class="name">${t}</span>
+            <span class="era" style="color:${color}">${era}</span>
+          </div>
+          <span class="grip" title="drag to reorder">⠿</span>
+        </div>`;
+      }).join("")}</div>
+      <p class="fineprint">A multiverse-wide ranking — separate from the MCU list, no ratings, just order.</p>
+    </div>`;
+  const list = $("#view").querySelector(".spiderlist");
+  makeDraggable([list], () => {
+    guesses.__spiderman = [...list.children].filter((el) => el.dataset.title).map((el) => el.dataset.title);
+    pushGuesses();
+    renderSpiderman();
+  });
+}
+
 const views = {
   rankings: renderRankings, phases: renderPhases,
   vs: () => renderVsSource(vsSource),
+  spiderman: renderSpiderman,
   legacy: renderLegacy,
 };
 
