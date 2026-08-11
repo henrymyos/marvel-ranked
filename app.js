@@ -504,18 +504,32 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-const loadCover = (title) => new Promise((resolve) => {
+const loadCover = (title, attempt = 0) => new Promise((resolve) => {
   if (!COVERS[title]) return resolve(null);
   const img = new Image();
   img.crossOrigin = "anonymous";
+  img.referrerPolicy = "no-referrer";
   img.onload = () => resolve(img);
-  img.onerror = () => resolve(null);
-  img.src = COVERS[title];
+  // Wikipedia sometimes 429s a burst of cover requests; one spaced retry
+  // (cache-busted so the browser refetches) usually clears it.
+  img.onerror = () => attempt < 1
+    ? setTimeout(() => loadCover(title, attempt + 1).then(resolve), 1500)
+    : resolve(null);
+  img.src = COVERS[title] + (attempt ? (COVERS[title].includes("?") ? "&" : "?") + "retry=" + attempt : "");
 });
 
 async function buildShareCard(items, subtitle) {
   const top = byRank(items).slice(0, 10);
-  const imgs = await Promise.all(top.map((m) => loadCover(m.title)));
+  // Load a few covers at a time instead of all ten at once — a full burst
+  // trips Wikipedia's rate limiting and random cards come back blank.
+  const imgs = [];
+  const queue = top.map((m, i) => [i, m.title]);
+  await Promise.all(Array.from({ length: 3 }, async () => {
+    while (queue.length) {
+      const [i, title] = queue.shift();
+      imgs[i] = await loadCover(title);
+    }
+  }));
   const W = 1080, H = 1920;
   const canvas = document.createElement("canvas");
   canvas.width = W;
