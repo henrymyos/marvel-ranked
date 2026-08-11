@@ -18,7 +18,7 @@ const COVERS = {
   "What If Season 2": "https://upload.wikimedia.org/wikipedia/en/b/b4/What_If...%3F_season_2_poster.jpeg",
   "X-Men '97 Season 1": "https://upload.wikimedia.org/wikipedia/en/b/bf/X-Men_%2797_season_1_poster.jpg",
   "X-Men '97 Season 2": "https://upload.wikimedia.org/wikipedia/en/d/d2/X-Men_%2797_season_2_poster.jpg",
-  "Wonder Man": "https://upload.wikimedia.org/wikipedia/en/b/bd/Wonder_Man_%28TV_series%29_logo.png",
+  "Wonder Man": "https://static.wikia.nocookie.net/marveldatabase/images/2/27/Wonder_Man_poster_003.jpg/revision/latest/scale-to-width-down/400",
   "Your Friendly Neighborhood Spider-Man": "https://allstarcomics.com.au/cdn/shop/files/STL373833_400x.jpg",
   "Iron Man": "https://upload.wikimedia.org/wikipedia/en/0/02/Iron_Man_%282008_film%29_poster.jpg",
   "The Incredible Hulk": "https://upload.wikimedia.org/wikipedia/en/f/f0/The_Incredible_Hulk_%28film%29_poster.jpg",

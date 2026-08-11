@@ -140,7 +140,9 @@ const OVERRIDES = {
   "What If Season 2": "https://upload.wikimedia.org/wikipedia/en/b/b4/What_If...%3F_season_2_poster.jpeg",
   "X-Men '97 Season 1": "https://upload.wikimedia.org/wikipedia/en/b/bf/X-Men_%2797_season_1_poster.jpg",
   "X-Men '97 Season 2": "https://upload.wikimedia.org/wikipedia/en/d/d2/X-Men_%2797_season_2_poster.jpg",
-  "Wonder Man": "https://upload.wikimedia.org/wikipedia/en/b/bd/Wonder_Man_%28TV_series%29_logo.png",
+  // Official streaming poster via the Marvel Database wiki (Wikipedia only
+  // has the show's logo).
+  "Wonder Man": "https://static.wikia.nocookie.net/marveldatabase/images/2/27/Wonder_Man_poster_003.jpg/revision/latest/scale-to-width-down/400",
   // The show has no poster yet; this is the tie-in graphic novel cover.
   "Your Friendly Neighborhood Spider-Man": "https://allstarcomics.com.au/cdn/shop/files/STL373833_400x.jpg",
 };
