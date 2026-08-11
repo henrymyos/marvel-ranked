@@ -117,9 +117,28 @@ for (let i = 0; i < uniq.length; i += 50) {
   }
 }
 
-// Pages with no poster in their infobox — hand-picked title logos instead.
+// Hand-picked art that beats each page's default image. Most Disney+ show
+// articles use widescreen title cards; these are real portrait posters
+// (episode-one posters where no series poster exists). Wonder Man has only
+// a logo so far.
 const OVERRIDES = {
-  "Hawkeye": "https://upload.wikimedia.org/wikipedia/en/7/7a/Hawkeye_%28miniseries%29_logo.png",
+  "WandaVision": "https://upload.wikimedia.org/wikipedia/en/b/b0/WandaVision_%22We_Interrupt_This_Program%22_poster.jpg",
+  "The Falcon and the Winter Soldier": "https://upload.wikimedia.org/wikipedia/en/4/40/The_Falcon_and_the_Winter_Soldier_%22New_World_Order%22_poster.jpeg",
+  "Hawkeye": "https://upload.wikimedia.org/wikipedia/en/8/83/Hawkeye_%22Never_Meet_Your_Heroes%22_poster.jpg",
+  "Moon Knight": "https://upload.wikimedia.org/wikipedia/en/9/9a/Moon_Knight_%22The_Goldfish_Problem%22_poster.jpeg",
+  "Ms. Marvel": "https://upload.wikimedia.org/wikipedia/en/e/e8/Ms._Marvel_%22Generation_Why%22_poster.jpg",
+  "Secret Invasion": "https://upload.wikimedia.org/wikipedia/en/5/51/Secret_Invasion_%22Resurrection%22_poster.jpg",
+  "Agatha All Along": "https://upload.wikimedia.org/wikipedia/en/9/95/Agatha_All_Along_%22Seekest_Thou_the_Road%22_poster.jpeg",
+  "Daredevil: Born Again Season 1": "https://upload.wikimedia.org/wikipedia/en/7/7d/Daredevil_Born_Again_season_1_poster.jpg",
+  "Daredevil: Born Again Season 2": "https://upload.wikimedia.org/wikipedia/en/0/02/Daredevil_Born_Again_season_2_poster.jpeg",
+  "Guardians Holiday Special": "https://upload.wikimedia.org/wikipedia/en/e/e3/The_Guardians_of_the_Galaxy_Holiday_Special_poster.jpg",
+  "Ironheart": "https://upload.wikimedia.org/wikipedia/en/1/1f/Ironheart_FilmPoster.jpeg",
+  "Loki Season 2": "https://upload.wikimedia.org/wikipedia/en/4/4b/Loki_season_2_poster.jpg",
+  "She-Hulk: Attorney at Law": "https://upload.wikimedia.org/wikipedia/en/4/48/She-Hulk_Attorney_at_Law_%22A_Normal_Amount_of_Rage%22_poster.jpg",
+  "Werewolf By Night": "https://upload.wikimedia.org/wikipedia/en/0/06/Werewolf_by_Night_%28TV_special%29_poster.jpg",
+  "What If Season 2": "https://upload.wikimedia.org/wikipedia/en/b/b4/What_If...%3F_season_2_poster.jpeg",
+  "X-Men '97 Season 1": "https://upload.wikimedia.org/wikipedia/en/b/bf/X-Men_%2797_season_1_poster.jpg",
+  "X-Men '97 Season 2": "https://upload.wikimedia.org/wikipedia/en/d/d2/X-Men_%2797_season_2_poster.jpg",
   "Wonder Man": "https://upload.wikimedia.org/wikipedia/en/b/bd/Wonder_Man_%28TV_series%29_logo.png",
 };
 

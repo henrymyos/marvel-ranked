@@ -562,9 +562,9 @@ async function buildShareCard(items, subtitle) {
     roundRectPath(ctx, x, y, w, h, cell.rank === 1 ? 18 : 14);
     ctx.clip();
     if (img) {
-      // Posters fill the cell; wide logo images get letterboxed instead of
-      // being cropped to a sliver.
-      const wide = img.width / img.height > 0.9;
+      // Posters fill the cell; landscape logo images get letterboxed instead
+      // of being cropped to a sliver. Near-square posters still fill.
+      const wide = img.width / img.height >= 1;
       const s = wide
         ? Math.min((w - 24) / img.width, (h - 24) / img.height)
         : Math.max(w / img.width, h / img.height);
