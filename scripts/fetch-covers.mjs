@@ -129,7 +129,8 @@ const OVERRIDES = {
   "Moon Knight": "https://m.media-amazon.com/images/M/MV5BNDAzNmYwZjgtNDc3YS00ZDMyLTk0MjktMTg4MGNmNGU3MjlhXkEyXkFqcGc@._V1_FMjpg_UX400_.jpg",
   "Ms. Marvel": "https://upload.wikimedia.org/wikipedia/en/e/e8/Ms._Marvel_%22Generation_Why%22_poster.jpg",
   "Secret Invasion": "https://upload.wikimedia.org/wikipedia/en/5/51/Secret_Invasion_%22Resurrection%22_poster.jpg",
-  "Agatha All Along": "https://static.wikia.nocookie.net/marveldatabase/images/0/05/Agatha_All_Along_poster_001.jpg/revision/latest/scale-to-width-down/400",
+  // Self-hosted in art/ — Fandom's CDN hotlink-blocks browsers unreliably.
+  "Agatha All Along": "art/agatha-all-along.webp",
   "Daredevil: Born Again Season 1": "https://upload.wikimedia.org/wikipedia/en/7/7d/Daredevil_Born_Again_season_1_poster.jpg",
   "Daredevil: Born Again Season 2": "https://upload.wikimedia.org/wikipedia/en/0/02/Daredevil_Born_Again_season_2_poster.jpeg",
   "Guardians Holiday Special": "https://upload.wikimedia.org/wikipedia/en/e/e3/The_Guardians_of_the_Galaxy_Holiday_Special_poster.jpg",
@@ -140,9 +141,7 @@ const OVERRIDES = {
   "What If Season 2": "https://upload.wikimedia.org/wikipedia/en/b/b4/What_If...%3F_season_2_poster.jpeg",
   "X-Men '97 Season 1": "https://upload.wikimedia.org/wikipedia/en/b/bf/X-Men_%2797_season_1_poster.jpg",
   "X-Men '97 Season 2": "https://upload.wikimedia.org/wikipedia/en/d/d2/X-Men_%2797_season_2_poster.jpg",
-  // Official streaming poster via the Marvel Database wiki (Wikipedia only
-  // has the show's logo).
-  "Wonder Man": "https://static.wikia.nocookie.net/marveldatabase/images/2/27/Wonder_Man_poster_003.jpg/revision/latest/scale-to-width-down/400",
+  "Wonder Man": "art/wonder-man.webp",
   // The show has no poster yet; this is the tie-in graphic novel cover.
   "Your Friendly Neighborhood Spider-Man": "https://allstarcomics.com.au/cdn/shop/files/STL373833_400x.jpg",
 };
