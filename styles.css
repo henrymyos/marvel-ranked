@@ -49,6 +49,24 @@ header.site h1 {
 }
 @media (max-width: 700px) { header.site h1 { font-size: 26px; padding: 6px 16px 8px; } }
 
+/* Account chip: sits on the hero banner, above the poster collage */
+.account {
+  position: absolute; top: 10px; right: 12px; z-index: 2;
+  display: flex; gap: 6px; align-items: center;
+}
+.account button, .account .who, .account input {
+  font: 600 12px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+  border-radius: 999px; padding: 4px 12px;
+  background: rgba(0, 0, 0, 0.55); border: 1px solid var(--border);
+}
+.account button { color: var(--text-secondary); cursor: pointer; }
+.account button:hover { color: var(--text-primary); border-color: rgba(255, 255, 255, 0.3); }
+.account .who { color: var(--text-primary); }
+.account form { display: flex; gap: 6px; }
+.account input { color: var(--text-primary); width: 140px; outline: none; font-weight: 400; }
+.account input:focus { border-color: rgba(255, 255, 255, 0.35); }
+.account input.bad { border-color: var(--marvel-red); }
+
 /* Tabs */
 nav.tabs { display: flex; gap: 4px; margin: 24px 0 20px; border-bottom: 1px solid var(--grid); flex-wrap: wrap; }
 nav.tabs button {

@@ -71,12 +71,22 @@ function applyPack(saved) {
   try { applyPack(JSON.parse(localStorage.getItem(EDITS_KEY))); } catch {}
 })();
 
-const syncOn = typeof SYNC !== "undefined" && SYNC.url;
+// Accounts are just a username — no password, it's not that serious. The
+// signed-in name is kept in this browser; sync only runs while signed in,
+// and each username gets its own server-side copy (the owner account
+// "Henry" IS the sheet). Signed out, edits stay in this browser only.
+const USER_KEY = "marvelRankedUser";
+let account = null;
+try { account = localStorage.getItem(USER_KEY) || null; } catch {}
+const VALID_USER = /^[A-Za-z0-9][A-Za-z0-9 _-]{0,23}$/;
+if (account && !VALID_USER.test(account)) account = null;
+
+const syncOn = typeof SYNC !== "undefined" && SYNC.url && !!account;
 
 // Apps Script answers through a redirect that sometimes serves an error page
 // instead of the JSON, so reads retry and writes are verified by re-reading.
 function fetchLive(retries = 3) {
-  return fetch(`${SYNC.url}?token=${encodeURIComponent(SYNC.token)}`)
+  return fetch(`${SYNC.url}?token=${encodeURIComponent(SYNC.token)}&user=${encodeURIComponent(account)}`)
     .then((r) => r.text())
     .then((t) => JSON.parse(t))
     .catch((err) => retries > 0
@@ -112,7 +122,7 @@ function saveEdits() {
   const seq = ++saveSeq;
   // The POST's own response is unreliable; what matters is what a fresh read
   // of the sheet says. Skip verification if a newer save started meanwhile.
-  fetch(SYNC.url, { method: "POST", body: JSON.stringify({ token: SYNC.token, ...body }) })
+  fetch(SYNC.url, { method: "POST", body: JSON.stringify({ token: SYNC.token, user: account, ...body }) })
     .catch(() => {})
     .then(() => new Promise((r) => setTimeout(r, 2000)))
     .then(() => fetchLive())
@@ -138,7 +148,7 @@ try { guesses = JSON.parse(localStorage.getItem(GUESS_KEY)) || {}; } catch {}
 function pushGuesses() {
   localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
   if (!syncOn) return;
-  fetch(SYNC.url, { method: "POST", body: JSON.stringify({ token: SYNC.token, guesses }) })
+  fetch(SYNC.url, { method: "POST", body: JSON.stringify({ token: SYNC.token, user: account, guesses }) })
     .catch(() => {});
 }
 
@@ -468,8 +478,9 @@ function renderRankings() {
             ${comingUpPanel(upShows, "shows")}
           </div>
         </div>
-        ${edited && !syncOn ? `<p class="fineprint">Rankings edited in this browser — the sheet is untouched.
-          <a href="#" id="reset-edits">Reset to sheet data</a>.</p>` : ""}
+        ${edited && !syncOn ? `<p class="fineprint">Rankings edited in this browser only — sign in (top of the page)
+          to keep them on an account and get them on other devices.
+          <a href="#" id="reset-edits">Reset to the default rankings</a>.</p>` : ""}
       </div>
     </div>`;
   const movieList = $("#view").querySelector('.ranklist[data-kind="movies"]');
@@ -1152,12 +1163,19 @@ document.querySelector("nav.tabs").addEventListener("click", (e) => {
   views[currentView]();
 });
 
-// With sync configured, the sheet is the source of truth: pull the live
-// rankings on load (the localStorage copy already shown is just a cache).
+// With an account signed in, the server copy is the source of truth: pull
+// the live rankings on load (the localStorage copy already shown is just a
+// cache).
 if (syncOn) {
   fetchLive()
     .then((live) => {
       if (!live.ok) throw new Error(live.error);
+      if (live.user === undefined)
+        console.warn("sheet sync: the web app predates accounts — paste the new scripts/sheet-webapp.gs into Apps Script and redeploy, or every username reads the owner's sheet");
+      // A brand-new account starts from whatever this browser currently
+      // shows (offline edits if any, else the built-in baseline): seed the
+      // server copy with it, guesses included.
+      if (live.fresh) { saveEdits(); return; }
       const packApplied = applyPack(live);
       if (packApplied) {
         localStorage.setItem(EDITS_KEY, JSON.stringify({
@@ -1235,5 +1253,46 @@ $("#hero-bg").innerHTML = movies
   .filter(Boolean)
   .map((src) => `<img src="${src}" alt="" loading="lazy">`)
   .join("");
+
+// Account chip in the header. Signing in (or out) reloads: the whole app —
+// syncOn, the pulled pack, the guesses — keys off the account at boot.
+// Signing out clears the local caches so the site falls back to the
+// built-in baseline rankings rather than the departed account's copy.
+const accountBox = $("#account");
+
+function showSignin() {
+  accountBox.innerHTML = `<form id="signin-form">
+    <input id="signin-name" maxlength="24" placeholder="username" autocomplete="username"
+      spellcheck="false" title="letters, numbers, spaces, - and _">
+    <button>Sign in</button>
+  </form>`;
+  const input = $("#signin-name");
+  input.focus();
+  $("#signin-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const name = input.value.trim();
+    if (!VALID_USER.test(name)) { input.classList.add("bad"); input.focus(); return; }
+    localStorage.setItem(USER_KEY, name);
+    location.reload();
+  });
+}
+
+function renderAccount() {
+  if (!accountBox) return;
+  if (account) {
+    accountBox.innerHTML = `<span class="who" title="rankings save to this account">${account}</span>
+      <button id="signout" title="back to the default rankings">sign out</button>`;
+    $("#signout").addEventListener("click", () => {
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(EDITS_KEY);
+      localStorage.removeItem(GUESS_KEY);
+      location.reload();
+    });
+  } else {
+    accountBox.innerHTML = `<button id="signin" title="a username is all it takes — your rankings sync to it">Sign in</button>`;
+    $("#signin").addEventListener("click", showSignin);
+  }
+}
+renderAccount();
 
 renderRankings();

@@ -1,5 +1,11 @@
 // Marvel Ranked — Google Apps Script web app that lets the site read and
-// write rankings in the sheet, so edits sync across devices.
+// write rankings, with username-only accounts.
+//
+// The owner account ("Henry") reads and writes the formatted sheet itself,
+// exactly as before — the sheet IS that account's data. Every other
+// username gets a row in a "Users" tab (created on first save) holding its
+// rankings and guesses as JSON. No passwords: knowing a username is
+// logging in, by design.
 //
 // ONE-TIME SETUP
 //   1. Open the Marvel Ranked sheet, then Extensions > Apps Script.
@@ -11,11 +17,26 @@
 //      Authorize it, then copy the URL ending in /exec.
 //   5. In the site's sync.js, set url to that /exec URL and token to TOKEN.
 //
-// The app only touches ratings (column B) and the two Overall rank
-// columns (H and K). Release order, phases, franchises, and upcoming rows
-// are left alone. The sheet's revision history covers any mishap.
+// UPDATING AN EXISTING DEPLOYMENT (keeps the same /exec URL)
+//   Paste the new code, keep TOKEN as it was, then:
+//   Deploy > Manage deployments > edit (pencil) > Version: New version > Deploy.
+//
+// For the owner account the app only touches ratings (column B) and the
+// two Overall rank columns (H and K). Release order, phases, franchises,
+// and upcoming rows are left alone. The sheet's revision history covers
+// any mishap.
 
 const TOKEN = "change-me";
+
+// The account whose data lives in the formatted sheet itself.
+const OWNER_KEY = "henry";
+const OWNER_NAME = "Henry";
+
+function norm_(u) { return String(u == null ? "" : u).trim(); }
+function userKey_(u) { return norm_(u).toLowerCase(); }
+// 1-24 chars: letters, digits, spaces, underscores, dashes. Doubles as an
+// HTML-injection guard for the site, which renders the name verbatim.
+function validUser_(u) { return /^[A-Za-z0-9][A-Za-z0-9 _-]{0,23}$/.test(u); }
 
 function sheet_() { return SpreadsheetApp.getActive().getSheets()[0]; }
 
@@ -41,10 +62,55 @@ function colValues_(sh, col) {
     .filter(function (c) { return c.value !== ""; });
 }
 
-// GET -> current rankings as JSON: { movies: [{t, r}...] best-to-worst,
-// shows: [{t, r}...], unwatched: [titles] }.
+// The "Users" tab: one row per non-owner account.
+// Columns: key (lowercased) | name (as typed) | pack JSON | guesses JSON | updated.
+function usersSheet_() {
+  var ss = SpreadsheetApp.getActive();
+  var sh = ss.getSheetByName("Users");
+  if (!sh) {
+    sh = ss.insertSheet("Users");
+    sh.getRange(1, 1, 1, 5).setValues([["key", "name", "pack", "guesses", "updated"]]);
+  }
+  return sh;
+}
+
+function findUser_(key) {
+  var sh = usersSheet_();
+  var last = sh.getLastRow();
+  if (last < 2) return null;
+  var vals = sh.getRange(2, 1, last - 1, 4).getValues();
+  for (var i = 0; i < vals.length; i++) {
+    if (String(vals[i][0]) === key) return { row: i + 2, name: String(vals[i][1]), pack: String(vals[i][2]), guesses: String(vals[i][3]) };
+  }
+  return null;
+}
+
+// GET ?token&user -> that account's rankings as JSON: { movies: [{t, r}...]
+// best-to-worst, shows: [{t, r}...], unwatched: [titles], guesses: {} }.
+// An unknown username answers fresh: true so the site can seed it.
 function doGet(e) {
   if (((e && e.parameter.token) || "") !== TOKEN) return json_({ ok: false, error: "bad token" });
+  var user = norm_((e && e.parameter.user) || OWNER_NAME);
+  if (!validUser_(user)) return json_({ ok: false, error: "bad username" });
+  if (userKey_(user) === OWNER_KEY) return json_(ownerGet_());
+  var found = findUser_(userKey_(user));
+  if (!found) return json_({ ok: true, v: 2, user: user, fresh: true, movies: [], shows: [], unwatched: [], guesses: {} });
+  var pack = {};
+  try { pack = JSON.parse(found.pack || "{}"); } catch (err) {}
+  var guesses = {};
+  try { guesses = JSON.parse(found.guesses || "{}"); } catch (err) {}
+  return json_({
+    ok: true,
+    v: 2,
+    user: found.name || user,
+    movies: pack.movies || [],
+    shows: pack.shows || [],
+    unwatched: pack.unwatched || [],
+    guesses: guesses,
+  });
+}
+
+function ownerGet_() {
   const sh = sheet_();
   const COLS = cols_(sh);
   const bVals = sh.getRange(1, COLS.B, sh.getLastRow(), 1).getValues();
@@ -74,22 +140,57 @@ function doGet(e) {
   });
   var guesses = {};
   try { guesses = JSON.parse(PropertiesService.getScriptProperties().getProperty("guesses") || "{}"); } catch (err) {}
-  return json_({
+  return {
     ok: true,
+    v: 2,
+    user: OWNER_NAME,
     movies: movieRank.map(function (t) { return { t: t, r: overall[t] != null ? overall[t] : null }; }),
     shows: showRank.map(function (t) { return { t: t, r: overall[t] != null ? overall[t] : null }; }),
     unwatched: unwatched,
     guesses: guesses,
-  });
+  };
 }
 
-// POST { token, movies: [{t, r}...] best-to-worst, shows: [...], unwatched: [...] }
-// -> writes ratings into B and P, rewrites the Overall columns, and clears
-// ratings for shows moved back to unwatched.
+// POST { token, user, movies: [{t, r}...] best-to-worst, shows: [...],
+// unwatched: [...], guesses: {} } -> saves to that account. Absent fields
+// are left untouched, so a guess-only save never clears rankings.
 function doPost(e) {
   let body;
   try { body = JSON.parse(e.postData.contents); } catch (err) { return json_({ ok: false, error: "bad json" }); }
   if ((body.token || "") !== TOKEN) return json_({ ok: false, error: "bad token" });
+  var user = norm_(body.user || OWNER_NAME);
+  if (!validUser_(user)) return json_({ ok: false, error: "bad username" });
+  if (userKey_(user) === OWNER_KEY) return json_(ownerPost_(body));
+  return json_(memberPost_(user, body));
+}
+
+function memberPost_(user, body) {
+  var sh = usersSheet_();
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var key = userKey_(user);
+    var found = findUser_(key);
+    var row = found ? found.row : sh.getLastRow() + 1;
+    var pack = {};
+    if (found) { try { pack = JSON.parse(found.pack || "{}"); } catch (err) {} }
+    if (Array.isArray(body.movies) && body.movies.length) pack.movies = body.movies;
+    if (Array.isArray(body.shows) && body.shows.length) pack.shows = body.shows;
+    if (Array.isArray(body.unwatched)) pack.unwatched = body.unwatched;
+    var guesses = found ? (found.guesses || "{}") : "{}";
+    if (body.guesses && typeof body.guesses === "object") guesses = JSON.stringify(body.guesses);
+    // Plain-text format: Sheets must never try to parse the JSON blobs.
+    sh.getRange(row, 1, 1, 5).setNumberFormat("@")
+      .setValues([[key, user, JSON.stringify(pack), guesses, new Date().toISOString()]]);
+  } finally {
+    lock.releaseLock();
+  }
+  return { ok: true, v: 2, user: user };
+}
+
+// The owner's save writes ratings into B, rewrites the Overall columns, and
+// clears ratings for shows moved back to unwatched.
+function ownerPost_(body) {
   const sh = sheet_();
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -134,7 +235,7 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
-  return json_({ ok: true });
+  return { ok: true, v: 2, user: OWNER_NAME };
 }
 
 // The sheet color-codes ranked titles by rating; these are its exact fills
