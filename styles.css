@@ -181,6 +181,21 @@ button.guess {
   border-radius: 999px; padding: 2px 10px;
 }
 .avgchip.off { color: #ff7a7a; border-color: #cf3535; }
+button.cardbtn { background: none; cursor: pointer; margin-right: 8px; }
+button.cardbtn:hover { color: var(--text-primary); }
+
+/* Share-card modal: canvas preview plus download/share actions */
+.share-modal {
+  position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, 0.72);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.share-box {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px; width: 100%; max-width: 400px; max-height: 92vh; overflow: auto;
+}
+.share-box img { display: block; width: 100%; border-radius: 10px; }
+.share-actions { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+.share-actions .chip { font: inherit; font-size: 13px; cursor: pointer; text-decoration: none; }
 
 /* Stat tiles */
 .tiles { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 16px; }

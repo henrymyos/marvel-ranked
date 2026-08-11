@@ -447,7 +447,7 @@ function renderRankings() {
       <div class="rank-pane">
         <div class="grid-2">
           <div class="stack">
-            <div class="panel"><h2>Movies ${avgChip(movies)}<span class="note">${movies.length} ranked · drag to re-rank</span></h2>
+            <div class="panel"><h2>Movies ${avgChip(movies)}<button class="avgchip cardbtn" id="share-card" title="make a shareable top-10 image">top 10 card</button><span class="note">${movies.length} ranked · drag to re-rank</span></h2>
               <div class="ranklist" data-kind="movies">${rankSeq(movies)}</div>
             </div>
             ${comingUpPanel(upMovies, "movies")}
@@ -479,10 +479,148 @@ function renderRankings() {
   makeDraggable([showList, unwatchedList], () => commitShows(showList, unwatchedList));
   $("#view").querySelectorAll("button.guess").forEach((btn) =>
     btn.addEventListener("click", () => openGuessPop(btn)));
+  $("#share-card")?.addEventListener("click", openShareCard);
   $("#reset-edits")?.addEventListener("click", (e) => {
     e.preventDefault();
     localStorage.removeItem(EDITS_KEY);
     location.reload();
+  });
+}
+
+// Share card: the top 10 movies drawn onto a canvas — poster, title, rating
+// chip per row under the red site plate — for downloading or sharing.
+// Wikimedia serves CORS headers, so covers load with crossOrigin and the
+// canvas stays exportable; a failed cover falls back to an initials box.
+function roundRectPath(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+const loadCover = (title) => new Promise((resolve) => {
+  if (!COVERS[title]) return resolve(null);
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.onload = () => resolve(img);
+  img.onerror = () => resolve(null);
+  img.src = COVERS[title];
+});
+
+async function buildShareCard() {
+  const top = byRank(movies).slice(0, 10);
+  const imgs = await Promise.all(top.map((m) => loadCover(m.title)));
+  const W = 1080, H = 1920;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+  const font = (size, weight = 700) => `${weight} ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+
+  ctx.fillStyle = "#0d0d0d";
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // Red plate header, same as the site's hero.
+  ctx.font = font(88, 900);
+  const plateW = ctx.measureText("MARVEL RANKED").width + 100;
+  ctx.fillStyle = "#e62429";
+  ctx.fillRect((W - plateW) / 2, 70, plateW, 130);
+  ctx.fillStyle = "#ffffff";
+  ctx.fillText("MARVEL RANKED", W / 2, 141);
+  ctx.font = font(34, 600);
+  ctx.fillStyle = "#898781";
+  ctx.fillText("MY TOP 10 MOVIES", W / 2, 262);
+
+  const left = 48, right = W - 48, rowH = 150, gap = 12;
+  let y = 306;
+  top.forEach((m, i) => {
+    ctx.fillStyle = "#1a1a19";
+    roundRectPath(ctx, left, y, right - left, rowH, 18);
+    ctx.fill();
+
+    ctx.font = font(64, 800);
+    ctx.fillStyle = "#898781";
+    ctx.fillText(String(i + 1), left + 62, y + rowH / 2 + 4);
+
+    const pw = 92, ph = 138, px = left + 122, py = y + (rowH - ph) / 2;
+    const img = imgs[i];
+    ctx.save();
+    roundRectPath(ctx, px, py, pw, ph, 10);
+    ctx.clip();
+    if (img) {
+      const s = Math.max(pw / img.width, ph / img.height);
+      ctx.drawImage(img, px + (pw - img.width * s) / 2, py + (ph - img.height * s) / 2, img.width * s, img.height * s);
+    } else {
+      ctx.fillStyle = "#1c1c24";
+      ctx.fillRect(px, py, pw, ph);
+      ctx.fillStyle = "#6b6b78";
+      ctx.font = font(30, 700);
+      ctx.fillText(m.title.replace(/[^A-Z]/g, "").slice(0, 2) || m.title[0], px + pw / 2, py + ph / 2);
+    }
+    ctx.restore();
+
+    const c = ratingColor(m.rating);
+    const chipW = 96, chipH = 76, cx = right - 30 - chipW, cy = y + (rowH - chipH) / 2;
+    ctx.fillStyle = c.bg;
+    roundRectPath(ctx, cx, cy, chipW, chipH, 16);
+    ctx.fill();
+    ctx.fillStyle = c.ink;
+    ctx.font = font(46, 800);
+    ctx.fillText(String(m.rating), cx + chipW / 2, cy + chipH / 2 + 3);
+
+    ctx.textAlign = "left";
+    ctx.font = font(40, 700);
+    ctx.fillStyle = "#ffffff";
+    let title = m.title;
+    const maxW = cx - (px + pw + 28) - 20;
+    if (ctx.measureText(title).width > maxW) {
+      while (title.length > 1 && ctx.measureText(title + "…").width > maxW) title = title.slice(0, -1);
+      title = title.trimEnd() + "…";
+    }
+    ctx.fillText(title, px + pw + 28, y + rowH / 2 + 4);
+    ctx.textAlign = "center";
+
+    y += rowH + gap;
+  });
+  return canvas;
+}
+
+function openShareCard() {
+  const modal = document.createElement("div");
+  modal.className = "share-modal";
+  modal.innerHTML = `<div class="share-box"><p class="fineprint">Building your card…</p></div>`;
+  document.body.appendChild(modal);
+  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+  buildShareCard().then((canvas) => {
+    const box = modal.querySelector(".share-box");
+    let url;
+    try {
+      url = canvas.toDataURL("image/png");
+    } catch {
+      box.innerHTML = `<p class="fineprint">Couldn't render the card — cover images were blocked.</p>`;
+      return;
+    }
+    box.innerHTML = `<img src="${url}" alt="My top 10 Marvel movies">
+      <div class="share-actions">
+        <a class="chip" download="marvel-ranked-top10.png" href="${url}">Download</a>
+        <button class="chip" data-share>Share</button>
+        <button class="chip" data-close>Close</button>
+      </div>`;
+    box.querySelector("[data-close]").addEventListener("click", () => modal.remove());
+    const shareBtn = box.querySelector("[data-share]");
+    if (navigator.canShare) {
+      shareBtn.addEventListener("click", () => canvas.toBlob((blob) => {
+        const file = new File([blob], "marvel-ranked-top10.png", { type: "image/png" });
+        if (navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(() => {});
+      }));
+    } else {
+      shareBtn.remove();
+    }
   });
 }
 
@@ -754,7 +892,7 @@ const VS_SOURCES = {
       Shows are left out: IMDb doesn't rate individual seasons.`,
   },
   rt: {
-    name: "Rotten Tomatoes", col: "RT", who: "Critics",
+    name: "RT Critics", col: "RT", who: "Critics",
     heading: "Me vs the critics",
     xLabel: "Tomatometer ÷ 10",
     score: (m) => RT[m.title] ? RT[m.title].critics / 10 : undefined,
@@ -763,9 +901,19 @@ const VS_SOURCES = {
     fineprint: () => `Rotten Tomatoes Tomatometer snapshot ${RT_SNAPSHOT} — refresh with <code>scripts/fetch-rt.mjs</code>.
       Movies only; &Delta; compares my rating with the Tomatometer &divide; 10.`,
   },
+  rtAud: {
+    name: "RT Audience", col: "Aud", who: "Audience",
+    heading: "Me vs the audience",
+    xLabel: "Popcornmeter ÷ 10",
+    score: (m) => RT[m.title]?.audience != null ? RT[m.title].audience / 10 : undefined,
+    display: (m) => `${RT[m.title].audience}%`,
+    rowTip: (m) => `${m.title} — me ${m.rating}, audience ${RT[m.title].audience}%, Tomatometer ${RT[m.title].critics}%`,
+    fineprint: () => `Rotten Tomatoes Popcornmeter snapshot ${RT_SNAPSHOT} — refresh with <code>scripts/fetch-rt.mjs</code>.
+      Movies only; &Delta; compares my rating with the Popcornmeter &divide; 10.`,
+  },
 };
 
-const vsSortState = { imdb: "theirs", rt: "theirs" };
+const vsSortState = { imdb: "theirs", rt: "theirs", rtAud: "theirs" };
 let vsSource = "imdb";
 
 function renderVsSource(id) {
