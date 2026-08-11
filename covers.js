@@ -3,7 +3,7 @@
 const COVERS = {
   "WandaVision": "https://upload.wikimedia.org/wikipedia/en/b/b0/WandaVision_%22We_Interrupt_This_Program%22_poster.jpg",
   "The Falcon and the Winter Soldier": "https://upload.wikimedia.org/wikipedia/en/4/40/The_Falcon_and_the_Winter_Soldier_%22New_World_Order%22_poster.jpeg",
-  "Hawkeye": "https://upload.wikimedia.org/wikipedia/en/8/83/Hawkeye_%22Never_Meet_Your_Heroes%22_poster.jpg",
+  "Hawkeye": "https://m.media-amazon.com/images/M/MV5BOGU5ZDBlOTAtOTZmYS00MWE0LTg0NzktNDcxZGJhN2FhZmM2XkEyXkFqcGc@._V1_FMjpg_UX400_.jpg",
   "Moon Knight": "https://upload.wikimedia.org/wikipedia/en/9/9a/Moon_Knight_%22The_Goldfish_Problem%22_poster.jpeg",
   "Ms. Marvel": "https://upload.wikimedia.org/wikipedia/en/e/e8/Ms._Marvel_%22Generation_Why%22_poster.jpg",
   "Secret Invasion": "https://upload.wikimedia.org/wikipedia/en/5/51/Secret_Invasion_%22Resurrection%22_poster.jpg",
