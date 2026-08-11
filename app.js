@@ -534,59 +534,56 @@ async function buildShareCard() {
   ctx.fillText("MARVEL RANKED", W / 2, 141);
   ctx.font = font(34, 600);
   ctx.fillStyle = "#898781";
-  ctx.fillText("MY TOP 10 MOVIES", W / 2, 262);
+  ctx.fillText("MY TOP 10 MOVIES", W / 2, 300);
 
-  const left = 48, right = W - 48, rowH = 150, gap = 12;
-  let y = 306;
-  top.forEach((m, i) => {
-    ctx.fillStyle = "#1a1a19";
-    roundRectPath(ctx, left, y, right - left, rowH, 18);
-    ctx.fill();
-
-    ctx.font = font(64, 800);
-    ctx.fillStyle = "#898781";
-    ctx.fillText(String(i + 1), left + 62, y + rowH / 2 + 4);
-
-    const pw = 92, ph = 138, px = left + 122, py = y + (rowH - ph) / 2;
-    const img = imgs[i];
+  // Covers only, podium layout: #1 big in the middle flanked by #2 and #3,
+  // then 4-7 and 8-10 in grid rows. Rank badges carry the ordering.
+  const cells = [
+    { rank: 2, x: 25, y: 495, w: 310, h: 465 },
+    { rank: 1, x: 360, y: 420, w: 360, h: 540 },
+    { rank: 3, x: 745, y: 495, w: 310, h: 465 },
+    { rank: 4, x: 24, y: 1010, w: 240, h: 360 },
+    { rank: 5, x: 288, y: 1010, w: 240, h: 360 },
+    { rank: 6, x: 552, y: 1010, w: 240, h: 360 },
+    { rank: 7, x: 816, y: 1010, w: 240, h: 360 },
+    { rank: 8, x: 156, y: 1420, w: 240, h: 360 },
+    { rank: 9, x: 420, y: 1420, w: 240, h: 360 },
+    { rank: 10, x: 684, y: 1420, w: 240, h: 360 },
+  ];
+  for (const cell of cells) {
+    const m = top[cell.rank - 1];
+    if (!m) continue;
+    const img = imgs[cell.rank - 1];
+    const { x, y, w, h } = cell;
     ctx.save();
-    roundRectPath(ctx, px, py, pw, ph, 10);
+    roundRectPath(ctx, x, y, w, h, cell.rank === 1 ? 18 : 14);
     ctx.clip();
     if (img) {
-      const s = Math.max(pw / img.width, ph / img.height);
-      ctx.drawImage(img, px + (pw - img.width * s) / 2, py + (ph - img.height * s) / 2, img.width * s, img.height * s);
+      const s = Math.max(w / img.width, h / img.height);
+      ctx.drawImage(img, x + (w - img.width * s) / 2, y + (h - img.height * s) / 2, img.width * s, img.height * s);
     } else {
       ctx.fillStyle = "#1c1c24";
-      ctx.fillRect(px, py, pw, ph);
+      ctx.fillRect(x, y, w, h);
       ctx.fillStyle = "#6b6b78";
-      ctx.font = font(30, 700);
-      ctx.fillText(m.title.replace(/[^A-Z]/g, "").slice(0, 2) || m.title[0], px + pw / 2, py + ph / 2);
+      ctx.font = font(56, 700);
+      ctx.fillText(m.title.replace(/[^A-Z]/g, "").slice(0, 2) || m.title[0], x + w / 2, y + h / 2);
     }
     ctx.restore();
 
-    const c = ratingColor(m.rating);
-    const chipW = 96, chipH = 76, cx = right - 30 - chipW, cy = y + (rowH - chipH) / 2;
-    ctx.fillStyle = c.bg;
-    roundRectPath(ctx, cx, cy, chipW, chipH, 16);
+    // Rank badge: red circle in the poster's top-left corner.
+    const big = cell.rank === 1;
+    const r = big ? 52 : 42, bx = x + r + 10, by = y + r + 10;
+    ctx.beginPath();
+    ctx.arc(bx, by, r, 0, Math.PI * 2);
+    ctx.fillStyle = "#e62429";
     ctx.fill();
-    ctx.fillStyle = c.ink;
-    ctx.font = font(46, 800);
-    ctx.fillText(String(m.rating), cx + chipW / 2, cy + chipH / 2 + 3);
-
-    ctx.textAlign = "left";
-    ctx.font = font(40, 700);
+    ctx.lineWidth = 6;
+    ctx.strokeStyle = "#0d0d0d";
+    ctx.stroke();
     ctx.fillStyle = "#ffffff";
-    let title = m.title;
-    const maxW = cx - (px + pw + 28) - 20;
-    if (ctx.measureText(title).width > maxW) {
-      while (title.length > 1 && ctx.measureText(title + "…").width > maxW) title = title.slice(0, -1);
-      title = title.trimEnd() + "…";
-    }
-    ctx.fillText(title, px + pw + 28, y + rowH / 2 + 4);
-    ctx.textAlign = "center";
-
-    y += rowH + gap;
-  });
+    ctx.font = font(big ? 58 : 44, 900);
+    ctx.fillText(String(cell.rank), bx, by + 3);
+  }
   return canvas;
 }
 
