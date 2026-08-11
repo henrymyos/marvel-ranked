@@ -447,13 +447,13 @@ function renderRankings() {
       <div class="rank-pane">
         <div class="grid-2">
           <div class="stack">
-            <div class="panel"><h2>Movies ${avgChip(movies)}<button class="avgchip cardbtn" id="share-card" title="make a shareable top-10 image">top 10 card</button><span class="note">${movies.length} ranked · drag to re-rank</span></h2>
+            <div class="panel"><h2>Movies ${avgChip(movies)}<button class="avgchip cardbtn" data-card="movies" title="make a shareable top-10 image">top 10 card</button><span class="note">${movies.length} ranked · drag to re-rank</span></h2>
               <div class="ranklist" data-kind="movies">${rankSeq(movies)}</div>
             </div>
             ${comingUpPanel(upMovies, "movies")}
           </div>
           <div class="stack">
-            <div class="panel"><h2>Shows ${avgChip(shows)}<span class="note">${shows.length} ranked</span></h2>
+            <div class="panel"><h2>Shows ${avgChip(shows)}<button class="avgchip cardbtn" data-card="shows" title="make a shareable top-10 image">top 10 card</button><span class="note">${shows.length} ranked</span></h2>
               <div class="ranklist" data-kind="shows">${rankSeq(shows)}</div>
               <h2 class="subheading">Haven't seen <span class="note">${unwatchedShows.length} shows · guesses don't count · drag up once watched</span></h2>
               <div class="unwatchedlist">${unwatchedShows.map((t) => `<div class="row drag" data-drag data-title="${t}">
@@ -479,7 +479,10 @@ function renderRankings() {
   makeDraggable([showList, unwatchedList], () => commitShows(showList, unwatchedList));
   $("#view").querySelectorAll("button.guess").forEach((btn) =>
     btn.addEventListener("click", () => openGuessPop(btn)));
-  $("#share-card")?.addEventListener("click", openShareCard);
+  $("#view").querySelectorAll("button.cardbtn").forEach((btn) =>
+    btn.addEventListener("click", () => btn.dataset.card === "shows"
+      ? openShareCard(shows, "MY TOP 10 SHOWS", "marvel-ranked-top10-shows.png")
+      : openShareCard(movies, "MY TOP 10 MOVIES", "marvel-ranked-top10-movies.png")));
   $("#reset-edits")?.addEventListener("click", (e) => {
     e.preventDefault();
     localStorage.removeItem(EDITS_KEY);
@@ -510,8 +513,8 @@ const loadCover = (title) => new Promise((resolve) => {
   img.src = COVERS[title];
 });
 
-async function buildShareCard() {
-  const top = byRank(movies).slice(0, 10);
+async function buildShareCard(items, subtitle) {
+  const top = byRank(items).slice(0, 10);
   const imgs = await Promise.all(top.map((m) => loadCover(m.title)));
   const W = 1080, H = 1920;
   const canvas = document.createElement("canvas");
@@ -534,7 +537,7 @@ async function buildShareCard() {
   ctx.fillText("MARVEL RANKED", W / 2, 141);
   ctx.font = font(34, 600);
   ctx.fillStyle = "#898781";
-  ctx.fillText("MY TOP 10 MOVIES", W / 2, 300);
+  ctx.fillText(subtitle, W / 2, 300);
 
   // Covers only, podium layout: #1 big in the middle flanked by #2 and #3,
   // then 4-7 and 8-10 in grid rows. Rank badges carry the ordering.
@@ -559,7 +562,13 @@ async function buildShareCard() {
     roundRectPath(ctx, x, y, w, h, cell.rank === 1 ? 18 : 14);
     ctx.clip();
     if (img) {
-      const s = Math.max(w / img.width, h / img.height);
+      // Posters fill the cell; wide logo images get letterboxed instead of
+      // being cropped to a sliver.
+      const wide = img.width / img.height > 0.9;
+      const s = wide
+        ? Math.min((w - 24) / img.width, (h - 24) / img.height)
+        : Math.max(w / img.width, h / img.height);
+      if (wide) { ctx.fillStyle = "#1c1c24"; ctx.fillRect(x, y, w, h); }
       ctx.drawImage(img, x + (w - img.width * s) / 2, y + (h - img.height * s) / 2, img.width * s, img.height * s);
     } else {
       ctx.fillStyle = "#1c1c24";
@@ -587,13 +596,13 @@ async function buildShareCard() {
   return canvas;
 }
 
-function openShareCard() {
+function openShareCard(items, subtitle, filename) {
   const modal = document.createElement("div");
   modal.className = "share-modal";
   modal.innerHTML = `<div class="share-box"><p class="fineprint">Building your card…</p></div>`;
   document.body.appendChild(modal);
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
-  buildShareCard().then((canvas) => {
+  buildShareCard(items, subtitle).then((canvas) => {
     const box = modal.querySelector(".share-box");
     let url;
     try {
@@ -602,9 +611,9 @@ function openShareCard() {
       box.innerHTML = `<p class="fineprint">Couldn't render the card — cover images were blocked.</p>`;
       return;
     }
-    box.innerHTML = `<img src="${url}" alt="My top 10 Marvel movies">
+    box.innerHTML = `<img src="${url}" alt="${subtitle}">
       <div class="share-actions">
-        <a class="chip" download="marvel-ranked-top10.png" href="${url}">Download</a>
+        <a class="chip" download="${filename}" href="${url}">Download</a>
         <button class="chip" data-share>Share</button>
         <button class="chip" data-close>Close</button>
       </div>`;
@@ -612,7 +621,7 @@ function openShareCard() {
     const shareBtn = box.querySelector("[data-share]");
     if (navigator.canShare) {
       shareBtn.addEventListener("click", () => canvas.toBlob((blob) => {
-        const file = new File([blob], "marvel-ranked-top10.png", { type: "image/png" });
+        const file = new File([blob], filename, { type: "image/png" });
         if (navigator.canShare({ files: [file] })) navigator.share({ files: [file] }).catch(() => {});
       }));
     } else {
