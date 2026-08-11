@@ -69,7 +69,7 @@ const COVERS = {
   "What If Season 1": "https://upload.wikimedia.org/wikipedia/en/9/91/What_If...%3F_season_1_poster.jpeg",
   "I Am Groot Season 1": "art/i-am-groot-s1.jpg",
   "I Am Groot Season 2": "art/i-am-groot-s2.jpg",
-  "Echo": "https://upload.wikimedia.org/wikipedia/en/9/99/Echo_%28miniseries%29_logo.jpg",
+  "Echo": "art/echo.jpg",
   "What If Season 3": "https://upload.wikimedia.org/wikipedia/en/b/ba/What_If...%3F_season_3_poster.jpeg",
   "Eyes of Wakanda": "https://upload.wikimedia.org/wikipedia/en/thumb/f/fd/Eyes_of_Wakanda_logo.jpg/500px-Eyes_of_Wakanda_logo.jpg",
   "Marvel Zombies": "https://upload.wikimedia.org/wikipedia/en/1/1a/Marvel_Zombies_%28TV_series%29_logo.png",
