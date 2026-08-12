@@ -23,7 +23,12 @@ const shows = [];
 let unwatchedShows = byRelease([...SHOW_META.values(), ...UNWATCHED_META.values()]);
 
 // Edits live in this browser (a cache of the account copy while signed in).
-const EDITS_KEY = "marvelRankedEdits";
+// The ".v2" keys date from the accounts era: v1 caches were written back
+// when the site was single-user, so a device that visited before accounts
+// existed would otherwise show those rankings to a signed-out visitor.
+const EDITS_KEY = "marvelRankedEdits.v2";
+localStorage.removeItem("marvelRankedEdits");
+localStorage.removeItem("marvelRankedGuesses");
 
 // A show dragged into the rankings keeps its metadata if it ever had any;
 // otherwise phase/year stay null and phase- and year-based views skip it.
@@ -143,7 +148,7 @@ function saveEdits() {
 
 // Expected ratings for the Coming Up slate, also browser-local. Titles with
 // "Season" (plus known series) count as shows; everything else is a movie.
-const GUESS_KEY = "marvelRankedGuesses";
+const GUESS_KEY = "marvelRankedGuesses.v2";
 let guesses = {};
 try { guesses = JSON.parse(localStorage.getItem(GUESS_KEY)) || {}; } catch {}
 
