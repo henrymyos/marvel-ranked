@@ -162,6 +162,58 @@ function pushGuesses() {
     .catch(() => {});
 }
 
+// One-level undo: every change snapshots the state it replaced and offers
+// an Undo button for 5 seconds. Undoing restores the snapshot (rankings,
+// pools, and guesses — which carry the Spider-Man order too) and saves it
+// like any other edit, so a synced account undoes on the server as well.
+let undoState = null;
+let undoTimer = null;
+
+const undoBar = document.createElement("div");
+undoBar.className = "undobar";
+undoBar.innerHTML = `<button type="button">↩ Undo</button>`;
+document.body.appendChild(undoBar);
+undoBar.querySelector("button").addEventListener("click", () => performUndo());
+
+function snapshotState() {
+  const pack = (xs) => [...xs].sort((a, b) => a.rank - b.rank).map((i) => ({ t: i.title, r: i.rating }));
+  return {
+    movies: pack(movies),
+    shows: pack(shows),
+    unwatched: [...unwatchedShows, ...unrankedMovies],
+    guesses: JSON.parse(JSON.stringify(guesses)),
+  };
+}
+
+function offerUndo(snapshot) {
+  undoState = snapshot;
+  undoBar.classList.add("show");
+  clearTimeout(undoTimer);
+  undoTimer = setTimeout(dismissUndo, 5000);
+}
+
+function dismissUndo() {
+  undoState = null;
+  undoBar.classList.remove("show");
+}
+
+function performUndo() {
+  if (!undoState) return;
+  // Save only what the undo actually rolled back: a guess-only undo must
+  // not write a rankings pack (that would flag the browser as edited).
+  const now = snapshotState();
+  const packOf = (s) => JSON.stringify([s.movies, s.shows, s.unwatched]);
+  const packChanged = packOf(now) !== packOf(undoState);
+  applyPack(undoState);
+  guesses = undoState.guesses;
+  localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
+  dismissUndo();
+  if (packChanged) saveEdits();
+  else pushGuesses();
+  views[currentView]();
+  updateBalanceAlert();
+}
+
 const UPCOMING_SHOW_HINTS = ["VisionQuest"];
 const isUpcomingShow = (t) => /season\b/i.test(t) || UPCOMING_SHOW_HINTS.includes(t);
 
@@ -300,6 +352,7 @@ function avgChip(items) {
 // re-render. Whatever sits in the ranklist is ranked (with the tier's
 // rating); whatever sits in the pool below doesn't count toward anything.
 function commitMovies(rankEl, poolEl) {
+  const snap = snapshotState();
   const rebuilt = [];
   let cur = 10, rank = 1;
   for (const el of rankEl.children) {
@@ -312,6 +365,7 @@ function commitMovies(rankEl, poolEl) {
     .filter((el) => el.dataset.title !== undefined)
     .map((el) => el.dataset.title);
   saveEdits();
+  offerUndo(snap);
   renderRankings();
   updateBalanceAlert();
 }
@@ -320,6 +374,7 @@ function commitMovies(rankEl, poolEl) {
 // ranked (unwatched shows dropped there get promoted, with the tier's rating),
 // and whatever sits in the unwatched list doesn't count toward anything.
 function commitShows(rankEl, unwatchedEl) {
+  const snap = snapshotState();
   const byTitle = new Map(shows.map((i) => [i.title, i]));
   const rebuilt = [];
   let cur = 10, rank = 1;
@@ -338,6 +393,7 @@ function commitShows(rankEl, unwatchedEl) {
     .filter((el) => el.dataset.title !== undefined)
     .map((el) => el.dataset.title);
   saveEdits();
+  offerUndo(snap);
   renderRankings();
   updateBalanceAlert();
 }
@@ -429,9 +485,11 @@ function openGuessPop(btn) {
   guessPop.addEventListener("click", (e) => {
     const opt = e.target.closest(".opt");
     if (!opt) return;
+    const snap = snapshotState();
     if ("r" in opt.dataset) guesses[title] = Number(opt.dataset.r);
     else delete guesses[title];
     pushGuesses();
+    offerUndo(snap);
     closeGuessPop();
     renderRankings();
   });
@@ -1172,8 +1230,10 @@ function renderSpiderman() {
     </div>`;
   const list = $("#view").querySelector(".spiderlist");
   makeDraggable([list], () => {
+    const snap = snapshotState();
     guesses.__spiderman = [...list.children].filter((el) => el.dataset.title).map((el) => el.dataset.title);
     pushGuesses();
+    offerUndo(snap);
     renderSpiderman();
   });
   $("#spider-card")?.addEventListener("click", () =>

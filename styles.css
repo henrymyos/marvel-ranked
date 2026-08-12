@@ -350,6 +350,21 @@ button.cardbtn:hover { color: var(--text-primary); }
 .vsrow:hover .cell { filter: brightness(1.06); }
 .fineprint { margin-top: 14px; font-size: 12px; color: var(--text-muted); }
 
+/* Undo toast: pops up bottom-center for 5 seconds after any change */
+.undobar {
+  position: fixed; left: 50%; bottom: 26px; z-index: 60;
+  transform: translate(-50%, 90px); opacity: 0; pointer-events: none;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.undobar.show { transform: translate(-50%, 0); opacity: 1; pointer-events: auto; }
+.undobar button {
+  background: var(--surface); color: var(--text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 999px;
+  padding: 10px 22px; font: 700 14px/1.2 system-ui, -apple-system, "Segoe UI", sans-serif;
+  cursor: pointer; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+}
+.undobar button:hover { border-color: rgba(255, 255, 255, 0.5); }
+
 /* Chips */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
