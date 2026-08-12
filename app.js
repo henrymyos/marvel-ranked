@@ -528,7 +528,7 @@ function renderRankings() {
       <div class="rank-pane">
         <div class="grid-2">
           <div class="stack">
-            <div class="panel"><h2>Movies ${avgChip(movies)}<button class="avgchip cardbtn" data-card="movies" title="make a shareable top-10 image">top 10 card</button><span class="note">${movies.length} ranked · drag to re-rank</span></h2>
+            <div class="panel"><h2>Movies ${avgChip(movies)}<button class="avgchip cardbtn" data-card="movies" title="make a shareable top-10 image">top 10 card</button>${movies.length ? `<button class="avgchip cardbtn" data-card="movies-all" title="make a shareable image of the whole ranked list">full list card</button>` : ""}<span class="note">${movies.length} ranked · drag to re-rank</span></h2>
               <div class="ranklist" data-kind="movies">${rankSeq(movies)}</div>
               <h2 class="subheading">Unranked <span class="note">${unrankedMovies.length} movies · drag up to rank</span></h2>
               <div class="unwatchedlist" data-kind="movie-pool">${unrankedMovies.map((t) => `<div class="row drag" data-drag data-title="${t}">
@@ -540,7 +540,7 @@ function renderRankings() {
             ${comingUpPanel(upMovies, "movies")}
           </div>
           <div class="stack">
-            <div class="panel"><h2>Shows ${avgChip(shows)}<button class="avgchip cardbtn" data-card="shows" title="make a shareable top-10 image">top 10 card</button><span class="note">${shows.length} ranked</span></h2>
+            <div class="panel"><h2>Shows ${avgChip(shows)}<button class="avgchip cardbtn" data-card="shows" title="make a shareable top-10 image">top 10 card</button>${shows.length ? `<button class="avgchip cardbtn" data-card="shows-all" title="make a shareable image of the whole ranked list">full list card</button>` : ""}<span class="note">${shows.length} ranked</span></h2>
               <div class="ranklist" data-kind="shows">${rankSeq(shows)}</div>
               <h2 class="subheading">Haven't seen <span class="note">${unwatchedShows.length} shows · guesses don't count · drag up once watched</span></h2>
               <div class="unwatchedlist" data-kind="show-pool">${unwatchedShows.map((t) => `<div class="row drag" data-drag data-title="${t}">
@@ -568,10 +568,14 @@ function renderRankings() {
   makeDraggable([showList, unwatchedList], () => commitShows(showList, unwatchedList));
   $("#view").querySelectorAll("button.guess").forEach((btn) =>
     btn.addEventListener("click", () => openGuessPop(btn)));
+  const cards = {
+    movies: () => openShareCard(movies, "MY TOP 10 MOVIES", "marvel-ranked-top10-movies.png"),
+    shows: () => openShareCard(shows, "MY TOP 10 SHOWS", "marvel-ranked-top10-shows.png"),
+    "movies-all": () => openShareCard(movies, `ALL ${movies.length} MOVIES, RANKED`, "marvel-ranked-all-movies.png", 10, true),
+    "shows-all": () => openShareCard(shows, `ALL ${shows.length} SHOWS, RANKED`, "marvel-ranked-all-shows.png", 10, true),
+  };
   $("#view").querySelectorAll("button.cardbtn").forEach((btn) =>
-    btn.addEventListener("click", () => btn.dataset.card === "shows"
-      ? openShareCard(shows, "MY TOP 10 SHOWS", "marvel-ranked-top10-shows.png")
-      : openShareCard(movies, "MY TOP 10 MOVIES", "marvel-ranked-top10-movies.png")));
+    btn.addEventListener("click", () => cards[btn.dataset.card]?.()));
   $("#reset-edits")?.addEventListener("click", (e) => {
     e.preventDefault();
     localStorage.removeItem(EDITS_KEY);
@@ -607,40 +611,87 @@ const loadCover = (title, attempt = 0) => new Promise((resolve) => {
   img.src = COVERS[title] + (attempt ? (COVERS[title].includes("?") ? "&" : "?") + "retry=" + attempt : "");
 });
 
-async function buildShareCard(items, subtitle, limit = 10) {
-  const top = byRank(items).slice(0, limit);
-  // Load a few covers at a time instead of all ten at once — a full burst
-  // trips Wikipedia's rate limiting and random cards come back blank.
+const cardFont = (size, weight = 700) => `${weight} ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+
+// Load a few covers at a time instead of all at once — a full burst trips
+// Wikipedia's rate limiting and random cards come back blank.
+async function loadCovers(items) {
   const imgs = [];
-  const queue = top.map((m, i) => [i, m.title]);
+  const queue = items.map((m, i) => [i, m.title]);
   await Promise.all(Array.from({ length: 3 }, async () => {
     while (queue.length) {
       const [i, title] = queue.shift();
       imgs[i] = await loadCover(title);
     }
   }));
-  const W = 1080, H = 1920;
-  const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d");
-  const font = (size, weight = 700) => `${weight} ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
+  return imgs;
+}
 
-  ctx.fillStyle = "#0d0d0d";
-  ctx.fillRect(0, 0, W, H);
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-
-  // Red plate header, same as the site's hero.
-  ctx.font = font(88, 900);
+// Red plate header, same as the site's hero.
+function drawCardHeader(ctx, W, subtitle) {
+  ctx.font = cardFont(88, 900);
   const plateW = ctx.measureText("MARVEL RANKED").width + 100;
   ctx.fillStyle = "#e62429";
   ctx.fillRect((W - plateW) / 2, 70, plateW, 130);
   ctx.fillStyle = "#ffffff";
   ctx.fillText("MARVEL RANKED", W / 2, 141);
-  ctx.font = font(34, 600);
+  ctx.font = cardFont(34, 600);
   ctx.fillStyle = "#898781";
   ctx.fillText(subtitle, W / 2, 300);
+}
+
+// A poster clipped to a rounded cell. Landscape logo images get letterboxed
+// instead of being cropped to a sliver; a missing cover falls back to an
+// initials box.
+function drawPoster(ctx, img, title, x, y, w, h, radius) {
+  ctx.save();
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.clip();
+  if (img) {
+    const wide = img.width / img.height >= 1;
+    const s = wide
+      ? Math.min((w - 24) / img.width, (h - 24) / img.height)
+      : Math.max(w / img.width, h / img.height);
+    if (wide) { ctx.fillStyle = "#1c1c24"; ctx.fillRect(x, y, w, h); }
+    ctx.drawImage(img, x + (w - img.width * s) / 2, y + (h - img.height * s) / 2, img.width * s, img.height * s);
+  } else {
+    ctx.fillStyle = "#1c1c24";
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = "#6b6b78";
+    ctx.font = cardFont(Math.round(w * 0.23), 700);
+    ctx.fillText(title.replace(/[^A-Z]/g, "").slice(0, 2) || title[0], x + w / 2, y + h / 2);
+  }
+  ctx.restore();
+}
+
+// Rank badge: red circle in the poster's top-left corner.
+function drawRankBadge(ctx, rank, bx, by, r) {
+  ctx.beginPath();
+  ctx.arc(bx, by, r, 0, Math.PI * 2);
+  ctx.fillStyle = "#e62429";
+  ctx.fill();
+  ctx.lineWidth = Math.max(3, Math.round(r / 9));
+  ctx.strokeStyle = "#0d0d0d";
+  ctx.stroke();
+  ctx.fillStyle = "#ffffff";
+  ctx.font = cardFont(Math.round(r * 1.1), 900);
+  ctx.fillText(String(rank), bx, by + r * 0.06);
+}
+
+async function buildShareCard(items, subtitle, limit = 10) {
+  const top = byRank(items).slice(0, limit);
+  const imgs = await loadCovers(top);
+  const W = 1080, H = 1920;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#0d0d0d";
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  drawCardHeader(ctx, W, subtitle);
 
   // Covers only, podium layout: #1 big in the middle flanked by #2 and #3,
   // then the rest split over two centered grid rows (4/3 for a top 10,
@@ -662,53 +713,62 @@ async function buildShareCard(items, subtitle, limit = 10) {
   for (const cell of cells) {
     const m = top[cell.rank - 1];
     if (!m) continue;
-    const img = imgs[cell.rank - 1];
     const { x, y, w, h } = cell;
-    ctx.save();
-    roundRectPath(ctx, x, y, w, h, cell.rank === 1 ? 18 : 14);
-    ctx.clip();
-    if (img) {
-      // Posters fill the cell; landscape logo images get letterboxed instead
-      // of being cropped to a sliver. Near-square posters still fill.
-      const wide = img.width / img.height >= 1;
-      const s = wide
-        ? Math.min((w - 24) / img.width, (h - 24) / img.height)
-        : Math.max(w / img.width, h / img.height);
-      if (wide) { ctx.fillStyle = "#1c1c24"; ctx.fillRect(x, y, w, h); }
-      ctx.drawImage(img, x + (w - img.width * s) / 2, y + (h - img.height * s) / 2, img.width * s, img.height * s);
-    } else {
-      ctx.fillStyle = "#1c1c24";
-      ctx.fillRect(x, y, w, h);
-      ctx.fillStyle = "#6b6b78";
-      ctx.font = font(56, 700);
-      ctx.fillText(m.title.replace(/[^A-Z]/g, "").slice(0, 2) || m.title[0], x + w / 2, y + h / 2);
-    }
-    ctx.restore();
-
-    // Rank badge: red circle in the poster's top-left corner.
+    drawPoster(ctx, imgs[cell.rank - 1], m.title, x, y, w, h, cell.rank === 1 ? 18 : 14);
     const big = cell.rank === 1;
-    const r = big ? 52 : 42, bx = x + r + 10, by = y + r + 10;
-    ctx.beginPath();
-    ctx.arc(bx, by, r, 0, Math.PI * 2);
-    ctx.fillStyle = "#e62429";
-    ctx.fill();
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = "#0d0d0d";
-    ctx.stroke();
-    ctx.fillStyle = "#ffffff";
-    ctx.font = font(big ? 58 : 44, 900);
-    ctx.fillText(String(cell.rank), bx, by + 3);
+    const r = big ? 52 : 42;
+    drawRankBadge(ctx, cell.rank, x + r + 10, y + r + 10, r);
   }
   return canvas;
 }
 
-function openShareCard(items, subtitle, filename, limit = 10) {
+// The whole ranked list on one tall card: a 5-wide grid of covers in rank
+// order, each with a rank badge and a rating chip in the list's colors.
+async function buildFullCard(items, subtitle) {
+  const list = byRank(items);
+  const imgs = await loadCovers(list);
+  const W = 1080, cols = 5, margin = 36, gap = 18;
+  const cw = (W - margin * 2 - gap * (cols - 1)) / cols;
+  const ch = cw * 1.5;
+  const rows = Math.ceil(list.length / cols);
+  const top = 360;
+  const H = top + rows * (ch + gap) - gap + 50;
+  const canvas = document.createElement("canvas");
+  canvas.width = W;
+  canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  ctx.fillStyle = "#0d0d0d";
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  drawCardHeader(ctx, W, subtitle);
+
+  list.forEach((m, i) => {
+    const x = margin + (i % cols) * (cw + gap);
+    const y = top + Math.floor(i / cols) * (ch + gap);
+    drawPoster(ctx, imgs[i], m.title, x, y, cw, ch, 12);
+    drawRankBadge(ctx, i + 1, x + 34, y + 34, 26);
+    // Rating chip, bottom-right, in the same color scale as the site.
+    const c = ratingColor(m.rating);
+    const pw = 52, ph = 40;
+    roundRectPath(ctx, x + cw - pw - 8, y + ch - ph - 8, pw, ph, 9);
+    ctx.fillStyle = c.bg;
+    ctx.fill();
+    ctx.fillStyle = c.ink;
+    ctx.font = cardFont(26, 800);
+    ctx.fillText(String(m.rating), x + cw - pw / 2 - 8, y + ch - ph / 2 - 7);
+  });
+  return canvas;
+}
+
+function openShareCard(items, subtitle, filename, limit = 10, full = false) {
   const modal = document.createElement("div");
   modal.className = "share-modal";
   modal.innerHTML = `<div class="share-box"><p class="fineprint">Building your card…</p></div>`;
   document.body.appendChild(modal);
   modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
-  buildShareCard(items, subtitle, limit).then((canvas) => {
+  (full ? buildFullCard(items, subtitle) : buildShareCard(items, subtitle, limit)).then((canvas) => {
     const box = modal.querySelector(".share-box");
     let url;
     try {
