@@ -1,66 +1,69 @@
 const $ = (sel) => document.querySelector(sel);
 
-const movieRank = new Map(MOVIE_RANK_ORDER.map((t, i) => [t, i + 1]));
-const showRank = new Map(SHOW_RANK_ORDER.map((t, i) => [t, i + 1]));
-
-const movies = MOVIES.map((m, i) => ({ ...m, type: "movie", release: m.release ?? i + 1, rank: movieRank.get(m.title) }));
-const shows = SHOWS.map((s, i) => ({ ...s, type: "show", release: s.release ?? i + 1, rank: showRank.get(s.title) }));
-
 const avg = (xs) => xs.reduce((a, b) => a + b, 0) / xs.length;
 const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2).replace(/0$/, "").replace(/\.0$/, "");
 
-// Drag edits live in this browser only; data.js (the sheet) stays canonical.
-// Saved edits are applied on load only while the title set still matches the
-// sheet — a re-sync that adds or removes a title silently discards them.
+// Everything starts unranked: the ranked lists begin empty and every title
+// sits in an "unranked" pool in release order, waiting to be dragged in.
+// The ratings baked into data.js are metadata for the sheet scripts, never
+// applied here — an account's pack (Henry's is the sheet itself) is the
+// only thing that fills the ranked lists.
+const MOVIE_META = new Map(MOVIES.map(({ rating, ...m }, i) => [m.title, { ...m, type: "movie", release: m.release ?? i + 1 }]));
+const SHOW_META = new Map(SHOWS.map(({ rating, ...s }, i) => [s.title, { ...s, type: "show", release: s.release ?? i + 1 }]));
+const UNWATCHED_META = new Map(UNWATCHED_SHOWS.map((u) => [u.title, { ...u, type: "show", release: u.release ?? null }]));
+const ALL_SHOW_TITLES = new Set([...SHOW_META.keys(), ...UNWATCHED_META.keys()]);
+
+const byRelease = (metas) => [...metas]
+  .sort((a, b) => (a.release ?? Infinity) - (b.release ?? Infinity))
+  .map((m) => m.title);
+
+const movies = [];
+let unrankedMovies = byRelease([...MOVIE_META.values()]);
+const shows = [];
+let unwatchedShows = byRelease([...SHOW_META.values(), ...UNWATCHED_META.values()]);
+
+// Edits live in this browser (a cache of the account copy while signed in).
 const EDITS_KEY = "marvelRankedEdits";
 
-// Unwatched shows can be dragged into the rankings (and back out). A show
-// promoted this way keeps its sheet metadata if it ever had any; otherwise
-// phase/year stay null and phase- and year-based views skip it.
-let unwatchedShows = UNWATCHED_SHOWS.map((u) => u.title);
-const SHOW_META = new Map(shows.map((s) => [s.title, { ...s }]));
-const UNWATCHED_META = new Map(UNWATCHED_SHOWS.map((u) => [u.title, { ...u, type: "show", release: u.release ?? null }]));
-const ALL_SHOW_TITLES = new Set([...shows.map((s) => s.title), ...unwatchedShows]);
+// A show dragged into the rankings keeps its metadata if it ever had any;
+// otherwise phase/year stay null and phase- and year-based views skip it.
 const promotedShow = (title) => {
   const meta = SHOW_META.get(title) ?? UNWATCHED_META.get(title);
   return meta ? { ...meta } : { title, type: "show", phase: null, year: null, release: null };
 };
 
 // Apply a rankings pack ({movies, shows, unwatched} in best-to-worst order)
-// from localStorage or the sheet web app. Rejected wholesale if the title
-// sets no longer match data.js. Returns whether anything was applied.
+// from localStorage or the sheet web app. Ranked entries may be any unique
+// subset of the known titles; everything left over returns to the unranked
+// pools. Unknown titles reject that list wholesale (a stale pack from
+// before a rename must not half-apply). Returns whether anything applied.
 function applyPack(saved) {
   if (!saved) return false;
   let applied = false;
 
-  if (Array.isArray(saved.movies) && saved.movies.length === movies.length) {
-    const byTitle = new Map(movies.map((i) => [i.title, i]));
+  if (Array.isArray(saved.movies)) {
     if (new Set(saved.movies.map((e) => e.t)).size === saved.movies.length &&
-        saved.movies.every((e) => byTitle.has(e.t) && Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
-      saved.movies.forEach((e, i) => { const it = byTitle.get(e.t); it.rating = e.r; it.rank = i + 1; });
+        saved.movies.every((e) => MOVIE_META.has(e.t) && Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
+      movies.length = 0;
+      saved.movies.forEach((e, i) => movies.push({ ...MOVIE_META.get(e.t), rating: e.r, rank: i + 1 }));
+      const ranked = new Set(saved.movies.map((e) => e.t));
+      unrankedMovies = byRelease([...MOVIE_META.values()].filter((m) => !ranked.has(m.title)));
       applied = true;
     }
   }
 
-  // Shows are valid while (ranked ∪ unwatched) still matches the sheet's
-  // title set — shows may have moved between the two lists.
-  const packedShows = Array.isArray(saved.shows) ? saved.shows : null;
-  const packedUn = Array.isArray(saved.unwatched) ? saved.unwatched : UNWATCHED_SHOWS.map((u) => u.title);
-  if (packedShows) {
-    const union = [...packedShows.map((e) => e.t), ...packedUn];
-    if (union.length === ALL_SHOW_TITLES.size && new Set(union).size === union.length &&
-        union.every((t) => ALL_SHOW_TITLES.has(t)) &&
-        packedShows.every((e) => Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
-      const cur = new Map(shows.map((i) => [i.title, i]));
-      const rebuilt = packedShows.map((e, i) => {
-        const it = cur.get(e.t) ?? promotedShow(e.t);
-        it.rating = e.r;
-        it.rank = i + 1;
-        return it;
-      });
+  // The saved unwatched list carries movie titles too (the web app keeps one
+  // clear-these-ratings list); only real show titles count here.
+  if (Array.isArray(saved.shows)) {
+    const packedUn = (Array.isArray(saved.unwatched) ? saved.unwatched : []).filter((t) => ALL_SHOW_TITLES.has(t));
+    const union = [...saved.shows.map((e) => e.t), ...packedUn];
+    if (new Set(union).size === union.length && union.every((t) => ALL_SHOW_TITLES.has(t)) &&
+        saved.shows.every((e) => Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
       shows.length = 0;
-      shows.push(...rebuilt);
-      unwatchedShows = packedUn.slice();
+      saved.shows.forEach((e, i) => shows.push({ ...promotedShow(e.t), rating: e.r, rank: i + 1 }));
+      const seen = new Set(union);
+      unwatchedShows = [...packedUn,
+        ...byRelease([...SHOW_META.values(), ...UNWATCHED_META.values()].filter((s) => !seen.has(s.title)))];
       applied = true;
     }
   }
@@ -114,7 +117,9 @@ function saveEdits() {
   }).filter(Boolean);
   // Guesses ride along on every save; the web app parks them in its own
   // key-value store (they have no sensible home in the sheet's cells).
-  const body = { movies: pack(movies), shows: pack(shows), unwatched: unwatchedShows, phases, franchises, guesses };
+  // The unwatched list carries unranked movies too: for the owner's sheet
+  // it's "clear these ratings", and applyPack rebuilds both pools from it.
+  const body = { movies: pack(movies), shows: pack(shows), unwatched: [...unwatchedShows, ...unrankedMovies], phases, franchises, guesses };
   localStorage.setItem(EDITS_KEY, JSON.stringify({
     movies: body.movies, shows: body.shows, unwatched: body.unwatched,
   }));
@@ -217,7 +222,7 @@ function coverCard(item) {
   const rated = item.rating != null;
   const c = rated ? ratingColor(item.rating) : null;
   return `<div class="card" data-detail="${item.title}" style="--phase:${PHASE_COLORS[item.phase] ?? "#8a8781"}"
-      title="${item.title} — ${rated ? `${item.rating}/10` : "haven't seen it yet"}">
+      title="${item.title} — ${rated ? `${item.rating}/10` : "not ranked yet"}">
     ${media}
     <span class="name">${item.title}</span>
     ${rated
@@ -286,18 +291,21 @@ function avgChip(items) {
   return `<span class="avgchip${a === 5 ? "" : " off"}" title="average rating — the goal is exactly 5">avg ${fmt(a)}</span>`;
 }
 
-// Re-derive ratings and ranks from the DOM order after a drop, then re-render.
-function commitList(container, list) {
-  const byTitle = new Map(list.map((i) => [i.title, i]));
+// Re-derive ratings and ranks from the DOM order after a drop, then
+// re-render. Whatever sits in the ranklist is ranked (with the tier's
+// rating); whatever sits in the pool below doesn't count toward anything.
+function commitMovies(rankEl, poolEl) {
+  const rebuilt = [];
   let cur = 10, rank = 1;
-  for (const el of container.children) {
+  for (const el of rankEl.children) {
     if (el.dataset.tier !== undefined) cur = Number(el.dataset.tier);
-    else if (el.dataset.title !== undefined) {
-      const it = byTitle.get(el.dataset.title);
-      it.rating = cur;
-      it.rank = rank++;
-    }
+    else if (el.dataset.title !== undefined) rebuilt.push({ ...MOVIE_META.get(el.dataset.title), rating: cur, rank: rank++ });
   }
+  movies.length = 0;
+  movies.push(...rebuilt);
+  unrankedMovies = [...poolEl.children]
+    .filter((el) => el.dataset.title !== undefined)
+    .map((el) => el.dataset.title);
   saveEdits();
   renderRankings();
   updateBalanceAlert();
@@ -450,15 +458,21 @@ function renderRankings() {
   $("#view").innerHTML = `
     <div class="split">
       <div class="release-pane">
-        ${releaseGallery(movies, "Movies")}
+        ${releaseGallery([...movies, ...unrankedMovies.map((t) => MOVIE_META.get(t)).filter(Boolean)], "Movies")}
         <div class="section-gap"></div>
-        ${releaseGallery([...shows, ...unwatchedShows.map((t) => UNWATCHED_META.get(t)).filter(Boolean)], "Shows")}
+        ${releaseGallery([...shows, ...unwatchedShows.map((t) => SHOW_META.get(t) ?? UNWATCHED_META.get(t)).filter(Boolean)], "Shows")}
       </div>
       <div class="rank-pane">
         <div class="grid-2">
           <div class="stack">
             <div class="panel"><h2>Movies ${avgChip(movies)}<button class="avgchip cardbtn" data-card="movies" title="make a shareable top-10 image">top 10 card</button><span class="note">${movies.length} ranked · drag to re-rank</span></h2>
               <div class="ranklist" data-kind="movies">${rankSeq(movies)}</div>
+              <h2 class="subheading">Unranked <span class="note">${unrankedMovies.length} movies · drag up to rank</span></h2>
+              <div class="unwatchedlist" data-kind="movie-pool">${unrankedMovies.map((t) => `<div class="row drag" data-drag data-title="${t}">
+                <span class="rank">–</span>
+                <span class="cellbox unwatched"><span class="title">${t}</span></span>
+                <span class="grip" title="drag into the rankings">⠿</span>
+              </div>`).join("")}</div>
             </div>
             ${comingUpPanel(upMovies, "movies")}
           </div>
@@ -466,7 +480,7 @@ function renderRankings() {
             <div class="panel"><h2>Shows ${avgChip(shows)}<button class="avgchip cardbtn" data-card="shows" title="make a shareable top-10 image">top 10 card</button><span class="note">${shows.length} ranked</span></h2>
               <div class="ranklist" data-kind="shows">${rankSeq(shows)}</div>
               <h2 class="subheading">Haven't seen <span class="note">${unwatchedShows.length} shows · guesses don't count · drag up once watched</span></h2>
-              <div class="unwatchedlist">${unwatchedShows.map((t) => `<div class="row drag" data-drag data-title="${t}">
+              <div class="unwatchedlist" data-kind="show-pool">${unwatchedShows.map((t) => `<div class="row drag" data-drag data-title="${t}">
                 <span class="rank">–</span>
                 <span class="cellbox${guesses[t] != null ? "" : " unwatched"}"${guesses[t] != null ? ` style="background:${ratingColor(guesses[t]).bg};color:${ratingColor(guesses[t]).ink}"` : ""}>
                   <span class="title">${t}</span>
@@ -480,13 +494,14 @@ function renderRankings() {
         </div>
         ${edited && !syncOn ? `<p class="fineprint">Rankings edited in this browser only — sign in (top of the page)
           to keep them on an account and get them on other devices.
-          <a href="#" id="reset-edits">Reset to the default rankings</a>.</p>` : ""}
+          <a href="#" id="reset-edits">Start over with everything unranked</a>.</p>` : ""}
       </div>
     </div>`;
   const movieList = $("#view").querySelector('.ranklist[data-kind="movies"]');
-  makeDraggable([movieList], () => commitList(movieList, movies));
+  const moviePool = $("#view").querySelector('.unwatchedlist[data-kind="movie-pool"]');
+  makeDraggable([movieList, moviePool], () => commitMovies(movieList, moviePool));
   const showList = $("#view").querySelector('.ranklist[data-kind="shows"]');
-  const unwatchedList = $("#view").querySelector(".unwatchedlist");
+  const unwatchedList = $("#view").querySelector('.unwatchedlist[data-kind="show-pool"]');
   makeDraggable([showList, unwatchedList], () => commitShows(showList, unwatchedList));
   $("#view").querySelectorAll("button.guess").forEach((btn) =>
     btn.addEventListener("click", () => openGuessPop(btn)));
@@ -662,28 +677,29 @@ function openShareCard(items, subtitle, filename, limit = 10) {
 // and get the big-poster profile — rating, rank, phase/year, and the outside
 // scores for movies.
 function openDetail(title) {
-  const inMovies = movies.find((m) => m.title === title);
-  const item = inMovies ?? shows.find((s) => s.title === title);
-  const meta = item ?? UNWATCHED_META.get(title) ?? LEGACY_SHOWS.find((l) => l.title === title);
+  const isMovie = MOVIE_META.has(title);
+  const item = (isMovie ? movies : shows).find((x) => x.title === title);
+  const meta = item ?? MOVIE_META.get(title) ?? SHOW_META.get(title) ?? UNWATCHED_META.get(title)
+    ?? LEGACY_SHOWS.find((l) => l.title === title);
   if (!meta) return;
 
   let status;
   if (item) {
-    const list = inMovies ? movies : shows;
+    const list = isMovie ? movies : shows;
     const c = ratingColor(item.rating);
     status = `<div class="bigscore" style="background:${c.bg};color:${c.ink}">${item.rating}</div>
-      <div class="rankline">#${item.rank} of ${list.length} ${inMovies ? "movies" : "shows"}</div>`;
+      <div class="rankline">#${item.rank} of ${list.length} ${isMovie ? "movies" : "shows"}</div>`;
   } else {
     const g = guesses[title];
-    const legacy = !UNWATCHED_META.has(title);
+    const legacy = !isMovie && !ALL_SHOW_TITLES.has(title);
     status = `<div class="bigscore unknown">?</div>
-      <div class="rankline">${legacy ? "Legacy TV — not ranked" : "Haven't seen it yet"}${g != null ? ` · expecting a ${g}` : ""}</div>`;
+      <div class="rankline">${legacy ? "Legacy TV — not ranked" : "Not ranked yet"}${g != null ? ` · expecting a ${g}` : ""}</div>`;
   }
 
   const facts = [];
   if (meta.phase != null) facts.push(`Phase ${meta.phase}${meta.year != null ? ` · ${meta.year}` : ""}`);
-  if (inMovies && IMDB[title]) facts.push(`IMDb ${IMDB[title].rating} · ${IMDB[title].votes.toLocaleString()} votes`);
-  if (inMovies && RT[title]) facts.push(`Tomatometer ${RT[title].critics}% · audience ${RT[title].audience}%`);
+  if (isMovie && IMDB[title]) facts.push(`IMDb ${IMDB[title].rating} · ${IMDB[title].votes.toLocaleString()} votes`);
+  if (isMovie && RT[title]) facts.push(`Tomatometer ${RT[title].critics}% · audience ${RT[title].audience}%`);
 
   const src = COVERS[title];
   const modal = document.createElement("div");
@@ -766,6 +782,10 @@ function segControl(chart) {
     `<button class="segbtn${statsFilter[chart] === p ? " active" : ""}" data-chart="${chart}" data-pick="${p}">${p}</button>`).join("")}</span>`;
 }
 
+const NOTHING_RANKED = `<div class="panel"><h2>Nothing ranked yet</h2>
+  <p class="fineprint">Head to the Rankings tab and drag titles out of the unranked pools —
+  stats appear as soon as something has a rating.</p></div>`;
+
 function renderStats() {
   const all = [...movies, ...shows];
   const groupStats = (raw, key) => {
@@ -783,13 +803,13 @@ function renderStats() {
   const bestPhase = byPhase[0], worstPhase = byPhase[byPhase.length - 1];
   const bestYear = byYear[0], worstYear = byYear[byYear.length - 1];
   const tiles = [
-    { label: "Movie average", value: fmt(movieAvg), dotRating: movieAvg, sub: `${movies.length} films` },
-    { label: "Show average", value: fmt(showAvg), dotRating: showAvg, sub: `${shows.length} shows` },
-    { label: "Best phase", value: `Phase ${bestPhase.key}`, dotRating: bestPhase.average, sub: `${fmt(bestPhase.average)} average` },
-    { label: "Worst phase", value: `Phase ${worstPhase.key}`, dotRating: worstPhase.average, sub: `${fmt(worstPhase.average)} average` },
-    { label: "Best year", value: bestYear.key, dotRating: bestYear.average, sub: `${fmt(bestYear.average)} average` },
-    { label: "Worst year", value: worstYear.key, dotRating: worstYear.average, sub: `${fmt(worstYear.average)} average` },
-  ];
+    movies.length && { label: "Movie average", value: fmt(movieAvg), dotRating: movieAvg, sub: `${movies.length} films` },
+    shows.length && { label: "Show average", value: fmt(showAvg), dotRating: showAvg, sub: `${shows.length} shows` },
+    bestPhase && { label: "Best phase", value: `Phase ${bestPhase.key}`, dotRating: bestPhase.average, sub: `${fmt(bestPhase.average)} average` },
+    worstPhase && { label: "Worst phase", value: `Phase ${worstPhase.key}`, dotRating: worstPhase.average, sub: `${fmt(worstPhase.average)} average` },
+    bestYear && { label: "Best year", value: bestYear.key, dotRating: bestYear.average, sub: `${fmt(bestYear.average)} average` },
+    worstYear && { label: "Worst year", value: worstYear.key, dotRating: worstYear.average, sub: `${fmt(worstYear.average)} average` },
+  ].filter(Boolean);
 
   // Rating distribution: how many titles landed on each 0-10 score.
   const distItems = filterSets[statsFilter.dist]();
@@ -873,10 +893,11 @@ function franchiseRatings(name) {
 }
 
 function renderPhases() {
-  const franchises = FRANCHISES.map((f) => {
-    const ratings = franchiseRatings(f.name);
-    return { name: f.name, ratings: ratings.length ? ratings : f.ratings };
-  }).map((f) => ({ ...f, average: avg(f.ratings) }))
+  if (!movies.length && !shows.length) { $("#view").innerHTML = NOTHING_RANKED; return; }
+  // Franchises with no ranked member simply don't appear yet.
+  const franchises = FRANCHISES.map((f) => ({ name: f.name, ratings: franchiseRatings(f.name) }))
+    .filter((f) => f.ratings.length)
+    .map((f) => ({ ...f, average: avg(f.ratings) }))
     .sort((a, b) => b.average - a.average);
   $("#view").innerHTML = `
     ${renderStats()}
@@ -1003,6 +1024,15 @@ let vsSource = "imdb";
 function renderVsSource(id) {
   const cfg = VS_SOURCES[id];
   const rated = movies.filter((m) => cfg.score(m) != null);
+  if (!rated.length) {
+    $("#view").innerHTML = `
+      <div class="vsswitch"><span class="seg">${Object.entries(VS_SOURCES).map(([sid, s]) =>
+        `<button class="segbtn${sid === id ? " active" : ""}" data-src="${sid}">${s.name}</button>`).join("")}</span></div>
+      ${NOTHING_RANKED}`;
+    $("#view").querySelectorAll(".vsswitch .segbtn").forEach((btn) =>
+      btn.addEventListener("click", () => { vsSource = btn.dataset.src; renderVsSource(vsSource); }));
+    return;
+  }
   const pairs = rated.map((m) => ({ m, title: m.title, mine: m.rating, theirs: cfg.score(m) }));
   const mine = pairs.map((p) => p.mine), theirs = pairs.map((p) => p.theirs);
   const r = pearson(mine, theirs);
@@ -1248,8 +1278,8 @@ function updateBalanceAlert() {
 }
 updateBalanceAlert();
 
-$("#hero-bg").innerHTML = movies
-  .map((m) => COVERS[m.title])
+$("#hero-bg").innerHTML = byRelease([...MOVIE_META.values()])
+  .map((t) => COVERS[t])
   .filter(Boolean)
   .map((src) => `<img src="${src}" alt="" loading="lazy">`)
   .join("");
