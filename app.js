@@ -164,7 +164,7 @@ function pushGuesses() {
 
 // One-level undo: every change snapshots the state it replaced and offers
 // an Undo button for 5 seconds. Undoing restores the snapshot (rankings,
-// pools, and guesses — which carry the Spider-Man order too) and saves it
+// pools, and guesses — which carry the roster orders too) and saves it
 // like any other edit, so a synced account undoes on the server as well.
 let undoState = null;
 let undoTimer = null;
@@ -597,8 +597,12 @@ function roundRectPath(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+// Posters for titles, portraits for characters — both draw onto share cards.
+const artFor = (title) => COVERS[title] ?? CHARACTER_ART[title];
+
 const loadCover = (title, attempt = 0) => new Promise((resolve) => {
-  if (!COVERS[title]) return resolve(null);
+  const src = artFor(title);
+  if (!src) return resolve(null);
   const img = new Image();
   img.crossOrigin = "anonymous";
   img.referrerPolicy = "no-referrer";
@@ -608,7 +612,7 @@ const loadCover = (title, attempt = 0) => new Promise((resolve) => {
   img.onerror = () => attempt < 1
     ? setTimeout(() => loadCover(title, attempt + 1).then(resolve), 1500)
     : resolve(null);
-  img.src = COVERS[title] + (attempt ? (COVERS[title].includes("?") ? "&" : "?") + "retry=" + attempt : "");
+  img.src = src + (attempt ? (src.includes("?") ? "&" : "?") + "retry=" + attempt : "");
 });
 
 const cardFont = (size, weight = 700) => `${weight} ${size}px system-ui, -apple-system, "Segoe UI", sans-serif`;
@@ -1235,10 +1239,64 @@ function renderLegacy() {
     </div>`;
 }
 
-// Every theatrical Spider-Man, ranked across the eras. This ordering is its
-// own thing — separate from the MCU rankings and their zero-sum averages.
-// It syncs across devices by riding in the guesses store under a reserved
-// key (title lookups never collide with "__spiderman").
+// Drag-to-rank picture lists: the Spider-Man, Heroes and Villains tabs are
+// the same widget over a different roster. Each ordering is its own thing —
+// separate from the MCU rankings and their zero-sum averages — and syncs
+// across devices by riding in the guesses store under a reserved key (title
+// lookups never collide with a leading "__").
+//
+// A saved order is kept even when the roster changes underneath it: known
+// entries hold their places and anything new lands at the bottom, so adding
+// a character never wipes a hand-made ranking.
+function rosterOrder(storeKey, keys) {
+  const saved = Array.isArray(guesses[storeKey]) ? guesses[storeKey] : [];
+  const known = new Set(keys);
+  const kept = saved.filter((k, i) => known.has(k) && saved.indexOf(k) === i);
+  const held = new Set(kept);
+  return [...kept, ...keys.filter((k) => !held.has(k))];
+}
+
+// cfg: { storeKey, entries: [{ key, name, sub, color, img }], heading, note,
+//        cardTitle, cardFile, cardLimit, fineprint }
+function renderRoster(cfg) {
+  const order = rosterOrder(cfg.storeKey, cfg.entries.map((e) => e.key));
+  const byKey = new Map(cfg.entries.map((e) => [e.key, e]));
+  $("#view").innerHTML = `
+    <div class="panel rosterwrap">
+      <h2>${cfg.heading} <button class="avgchip cardbtn" id="roster-card"
+        title="make a shareable top-${cfg.cardLimit} image">top ${cfg.cardLimit} card</button><span class="note">${cfg.note}</span></h2>
+      <div class="rosterlist${cfg.portraits ? " portraits" : ""}">${order.map((key, i) => {
+        const e = byKey.get(key);
+        return `<div class="rosterrow" data-drag data-title="${key}">
+          <span class="rank">${i + 1}</span>
+          <div class="card" style="--phase:${e.color}">
+            ${e.img ? `<img src="${e.img}" alt="" loading="lazy">` : `<span class="noimg">${e.name.slice(0, 2).toUpperCase()}</span>`}
+            <span class="name">${e.name}</span>
+            <span class="era" style="color:${e.color}">${e.sub}</span>
+          </div>
+          <span class="grip" title="drag to reorder">⠿</span>
+        </div>`;
+      }).join("")}</div>
+      <p class="fineprint">${cfg.fineprint}</p>
+    </div>`;
+  const list = $("#view").querySelector(".rosterlist");
+  makeDraggable([list], () => {
+    const snap = snapshotState();
+    guesses[cfg.storeKey] = [...list.children].filter((el) => el.dataset.title).map((el) => el.dataset.title);
+    pushGuesses();
+    offerUndo(snap);
+    views[currentView]();
+  });
+  $("#roster-card")?.addEventListener("click", () =>
+    openShareCard(order.map((key, i) => ({ title: key, rank: i + 1 })),
+      cfg.cardTitle, cfg.cardFile, cfg.cardLimit));
+}
+
+// A group legend — the color key shared by the character tabs.
+const groupLegend = (groups) =>
+  `<span class="rosterkey">${Object.entries(groups)
+    .map(([label, color]) => `<span style="--phase:${color}">${label}</span>`).join("")}</span>`;
+
 const SPIDERMAN_MOVIES = [
   "Spider-Man", "Spider-Man 2", "Spider-Man 3",
   "The Amazing Spider-Man", "The Amazing Spider-Man 2",
@@ -1260,51 +1318,64 @@ const SPIDER_ERAS = {
   "Spider-Man: Across the Spider-Verse": ["Spider-Verse", "#a05ce8"],
 };
 
-function spidermanOrder() {
-  const saved = guesses.__spiderman;
-  if (Array.isArray(saved) && saved.length === SPIDERMAN_MOVIES.length &&
-      new Set(saved).size === saved.length && saved.every((t) => SPIDERMAN_MOVIES.includes(t)))
-    return [...saved];
-  return [...SPIDERMAN_MOVIES];
+function renderSpiderman() {
+  renderRoster({
+    storeKey: "__spiderman",
+    entries: SPIDERMAN_MOVIES.map((t) => {
+      const [era, color] = SPIDER_ERAS[t];
+      return { key: t, name: t, sub: era, color, img: COVERS[t] };
+    }),
+    heading: "Spider-Man, ranked",
+    note: `all ${SPIDERMAN_MOVIES.length} movies, every era · drag to reorder`,
+    cardTitle: "EVERY SPIDER-MAN MOVIE, RANKED",
+    cardFile: "marvel-ranked-spiderman.png",
+    cardLimit: 11,
+    fineprint: "A multiverse-wide ranking — separate from the MCU list, no ratings, just order.",
+  });
 }
 
-function renderSpiderman() {
-  const order = spidermanOrder();
-  $("#view").innerHTML = `
-    <div class="panel spiderwrap">
-      <h2>Spider-Man, ranked <button class="avgchip cardbtn" id="spider-card" title="make a shareable top-11 image">top 11 card</button><span class="note">all ${order.length} movies, every era · drag to reorder</span></h2>
-      <div class="spiderlist">${order.map((t, i) => {
-        const [era, color] = SPIDER_ERAS[t];
-        const src = COVERS[t];
-        return `<div class="spiderrow" data-drag data-title="${t}">
-          <span class="rank">${i + 1}</span>
-          <div class="card" style="--phase:${color}">
-            ${src ? `<img src="${src}" alt="" loading="lazy">` : `<span class="noimg">SM</span>`}
-            <span class="name">${t}</span>
-            <span class="era" style="color:${color}">${era}</span>
-          </div>
-          <span class="grip" title="drag to reorder">⠿</span>
-        </div>`;
-      }).join("")}</div>
-      <p class="fineprint">A multiverse-wide ranking — separate from the MCU list, no ratings, just order.</p>
-    </div>`;
-  const list = $("#view").querySelector(".spiderlist");
-  makeDraggable([list], () => {
-    const snap = snapshotState();
-    guesses.__spiderman = [...list.children].filter((el) => el.dataset.title).map((el) => el.dataset.title);
-    pushGuesses();
-    offerUndo(snap);
-    renderSpiderman();
+// The people, not the projects: every hero and every villain who has shown up
+// on screen, ranked by hand. Portraits and rosters live in characters.js.
+function characterEntries(roster, groups) {
+  return roster.map((c) => ({
+    key: c.name, name: c.name, sub: c.actor, color: groups[c.group] ?? "#8a8781", img: c.img,
+  }));
+}
+
+function renderHeroes() {
+  renderRoster({
+    storeKey: "__heroes",
+    entries: characterEntries(HEROES, HERO_GROUPS),
+    heading: "Heroes, ranked",
+    note: `all ${HEROES.length} of them · drag to reorder`,
+    cardTitle: "MY TOP 10 MARVEL HEROES",
+    cardFile: "marvel-ranked-heroes.png",
+    cardLimit: 10,
+    portraits: true,
+    fineprint: `Colors by corner of the universe: ${groupLegend(HERO_GROUPS)}`,
   });
-  $("#spider-card")?.addEventListener("click", () =>
-    openShareCard(spidermanOrder().map((t, i) => ({ title: t, rank: i + 1 })),
-      "EVERY SPIDER-MAN MOVIE, RANKED", "marvel-ranked-spiderman.png", 11));
+}
+
+function renderVillains() {
+  renderRoster({
+    storeKey: "__villains",
+    entries: characterEntries(VILLAINS, VILLAIN_GROUPS),
+    heading: "Villains, ranked",
+    note: `all ${VILLAINS.length} of them · drag to reorder`,
+    cardTitle: "MY TOP 10 MARVEL VILLAINS",
+    cardFile: "marvel-ranked-villains.png",
+    cardLimit: 10,
+    portraits: true,
+    fineprint: `Colors by corner of the universe: ${groupLegend(VILLAIN_GROUPS)}`,
+  });
 }
 
 const views = {
   rankings: renderRankings, phases: renderPhases,
   vs: () => renderVsSource(vsSource),
   spiderman: renderSpiderman,
+  heroes: renderHeroes,
+  villains: renderVillains,
   legacy: renderLegacy,
 };
 
