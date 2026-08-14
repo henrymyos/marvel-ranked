@@ -91,6 +91,52 @@ if (account && !VALID_USER.test(account)) account = null;
 
 const syncOn = typeof SYNC !== "undefined" && SYNC.url && !!account;
 
+// A shared link should land on a board with something on it. A first-time
+// visitor — no account, nothing ranked in this browser yet — gets an example
+// top 10 built from the data.js metadata (the sheet's overall order, with its
+// ratings), so the rankings, stats and comparison tabs all have something to
+// show instead of an empty grid. It is never saved: the first edit makes the
+// board theirs, and "start from scratch" empties it for good.
+const DEMO_SIZE = 10;
+const SHEET_RATINGS = new Map(MOVIES.map((m) => [m.title, m.rating]));
+let demoMode = false;
+
+if (!account && localStorage.getItem(EDITS_KEY) === null) {
+  demoMode = applyPack({
+    movies: MOVIE_RANK_ORDER.filter((t) => MOVIE_META.has(t)).slice(0, DEMO_SIZE)
+      .map((t) => ({ t, r: SHEET_RATINGS.get(t) })),
+  });
+}
+
+// Ends the example — called from saveEdits, so every path that writes a
+// ranking (a drag, an undo, "start from scratch") lands here exactly once.
+function endDemo() {
+  if (!demoMode) return;
+  demoMode = false;
+  renderDemoBanner();
+  updateBalanceAlert();
+}
+
+function renderDemoBanner() {
+  const existing = document.querySelector(".demo-banner");
+  if (!demoMode) { existing?.remove(); return; }
+  if (existing) return;
+  const el = document.createElement("div");
+  el.className = "demo-banner";
+  el.innerHTML = `👋&nbsp;<strong>Example board</strong> Someone else's top 10, so there's something here
+    on a first visit. Drag a movie to make this board yours, or
+    <button id="demo-clear">start from scratch</button>.`;
+  document.querySelector("nav.tabs").after(el);
+  el.querySelector("#demo-clear").addEventListener("click", clearDemo);
+}
+
+function clearDemo() {
+  movies.length = 0;
+  unrankedMovies = byRelease([...MOVIE_META.values()]);
+  saveEdits(); // ends the example and remembers the empty board across reloads
+  views[currentView]();
+}
+
 // Apps Script answers through a redirect that sometimes serves an error page
 // instead of the JSON, so reads retry and writes are verified by re-reading.
 function fetchLive(retries = 3) {
@@ -105,6 +151,7 @@ function fetchLive(retries = 3) {
 let saveSeq = 0;
 
 function saveEdits() {
+  endDemo();
   const pack = (xs) => [...xs].sort((a, b) => a.rank - b.rank).map((i) => ({ t: i.title, r: i.rating }));
   // The sheet keeps a per-phase movie rating list and average (D/E/F rows);
   // recompute them here so the web app can keep those cells in step.
@@ -343,7 +390,9 @@ function rankSeq(items) {
 }
 
 function avgChip(items) {
-  if (!items.length) return "";
+  // A top-10 example averages nowhere near the 5.0 target by design; flagging
+  // it would read as a problem with the visitor's board.
+  if (!items.length || demoMode) return "";
   const a = avg(items.map((i) => i.rating));
   return `<span class="avgchip${a === 5 ? "" : " off"}" title="average rating — the goal is exactly 5">avg ${fmt(a)}</span>`;
 }
@@ -528,7 +577,7 @@ function renderRankings() {
       <div class="rank-pane">
         <div class="grid-2">
           <div class="stack">
-            <div class="panel"><h2>Movies ${avgChip(movies)}<button class="avgchip cardbtn" data-card="movies" title="make a shareable top-10 image">top 10 card</button>${movies.length ? `<button class="avgchip cardbtn" data-card="movies-all" title="make a shareable image of the whole ranked list">full list card</button>` : ""}<span class="note">${movies.length} ranked · drag to re-rank</span></h2>
+            <div class="panel"><h2>Movies ${avgChip(movies)}<button class="avgchip cardbtn" data-card="movies" title="make a shareable top-10 image">top 10 card</button>${movies.length ? `<button class="avgchip cardbtn" data-card="movies-all" title="make a shareable image of the whole ranked list">full list card</button>` : ""}<span class="note">${demoMode ? "an example top 10" : `${movies.length} ranked · drag to re-rank`}</span></h2>
               <div class="ranklist" data-kind="movies">${rankSeq(movies)}</div>
               <h2 class="subheading">Unranked <span class="note">${unrankedMovies.length} movies · drag up to rank</span></h2>
               <div class="unwatchedlist" data-kind="movie-pool">${unrankedMovies.map((t) => `<div class="row drag" data-drag data-title="${t}">
@@ -569,7 +618,7 @@ function renderRankings() {
   $("#view").querySelectorAll("button.guess").forEach((btn) =>
     btn.addEventListener("click", () => openGuessPop(btn)));
   const cards = {
-    movies: () => openShareCard(movies, "MY TOP 10 MOVIES", "marvel-ranked-top10-movies.png"),
+    movies: () => openShareCard(movies, demoMode ? "AN EXAMPLE TOP 10 MOVIES" : "MY TOP 10 MOVIES", "marvel-ranked-top10-movies.png"),
     shows: () => openShareCard(shows, "MY TOP 10 SHOWS", "marvel-ranked-top10-shows.png"),
     "movies-all": () => openShareCard(movies, `ALL ${movies.length} MOVIES, RANKED`, "marvel-ranked-all-movies.png", 10, true),
     "shows-all": () => openShareCard(shows, `ALL ${shows.length} SHOWS, RANKED`, "marvel-ranked-all-shows.png", 10, true),
@@ -1457,7 +1506,9 @@ window.addEventListener("scroll", () => { tipFor = null; tooltip.classList.remov
 // stay at exactly 5. If an edit breaks that, flag it above every tab with the
 // exact number of points to give back or hand out.
 function updateBalanceAlert() {
-  const issues = [["Movies", movies], ["Shows", shows]].flatMap(([label, xs]) => {
+  // The example board is someone else's list, not an edit to answer for.
+  if (demoMode) { document.querySelector(".balance-alert")?.remove(); return; }
+  const issues =[["Movies", movies], ["Shows", shows]].flatMap(([label, xs]) => {
     const sum = xs.reduce((a, x) => a + x.rating, 0);
     const diff = sum - xs.length * 5;
     if (diff === 0) return [];
@@ -1473,6 +1524,7 @@ function updateBalanceAlert() {
   el.innerHTML = `<strong>⚠ Averages off the 5.0 target</strong> ${issues.join(" · ")}`;
 }
 updateBalanceAlert();
+renderDemoBanner();
 
 $("#hero-bg").innerHTML = byRelease([...MOVIE_META.values()])
   .map((t) => COVERS[t])
