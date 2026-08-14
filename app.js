@@ -93,19 +93,29 @@ const syncOn = typeof SYNC !== "undefined" && SYNC.url && !!account;
 
 // A shared link should land on a board with something on it. A first-time
 // visitor — no account, nothing ranked in this browser yet — gets an example
-// top 10 built from the data.js metadata (the sheet's overall order, with its
-// ratings), so the rankings, stats and comparison tabs all have something to
+// top 10, so the rankings, stats and comparison tabs all have something to
 // show instead of an empty grid. It is never saved: the first edit makes the
 // board theirs, and "start from scratch" empties it for good.
+//
+// The example is nobody's personal list — it's the ten highest-rated Marvel
+// movies on IMDb, each score stretched onto this site's 0–10 scale (IMDb's
+// range across these films is only 5.4–8.4, so the raw numbers would land as
+// a flat row of 7s and 8s). Same adjustment the "vs IMDb & RT" tab makes.
 const DEMO_SIZE = 10;
-const SHEET_RATINGS = new Map(MOVIES.map((m) => [m.title, m.rating]));
 let demoMode = false;
 
+function crowdTopTen() {
+  const scored = [...MOVIE_META.keys()]
+    .map((t) => ({ t, s: IMDB[t]?.rating }))
+    .filter((x) => x.s != null)
+    .sort((a, b) => b.s - a.s);
+  if (scored.length < DEMO_SIZE) return [];
+  const lo = Math.min(...scored.map((x) => x.s)), hi = Math.max(...scored.map((x) => x.s));
+  return scored.slice(0, DEMO_SIZE).map(({ t, s }) => ({ t, r: Math.round(((s - lo) / (hi - lo)) * 10) }));
+}
+
 if (!account && localStorage.getItem(EDITS_KEY) === null) {
-  demoMode = applyPack({
-    movies: MOVIE_RANK_ORDER.filter((t) => MOVIE_META.has(t)).slice(0, DEMO_SIZE)
-      .map((t) => ({ t, r: SHEET_RATINGS.get(t) })),
-  });
+  demoMode = applyPack({ movies: crowdTopTen() });
 }
 
 // Ends the example — called from saveEdits, so every path that writes a
@@ -123,8 +133,8 @@ function renderDemoBanner() {
   if (existing) return;
   const el = document.createElement("div");
   el.className = "demo-banner";
-  el.innerHTML = `👋&nbsp;<strong>Example board</strong> Someone else's top 10, so there's something here
-    on a first visit. Drag a movie to make this board yours, or
+  el.innerHTML = `👋&nbsp;<strong>Example board</strong> The ten highest-rated Marvel movies on IMDb,
+    so there's something here on a first visit. Drag a movie to make this board yours, or
     <button id="demo-clear">start from scratch</button>.`;
   document.querySelector("nav.tabs").after(el);
   el.querySelector("#demo-clear").addEventListener("click", clearDemo);
@@ -577,7 +587,7 @@ function renderRankings() {
       <div class="rank-pane">
         <div class="grid-2">
           <div class="stack">
-            <div class="panel"><h2>Movies ${avgChip(movies)}<button class="avgchip cardbtn" data-card="movies" title="make a shareable top-10 image">top 10 card</button>${movies.length ? `<button class="avgchip cardbtn" data-card="movies-all" title="make a shareable image of the whole ranked list">full list card</button>` : ""}<span class="note">${demoMode ? "an example top 10" : `${movies.length} ranked · drag to re-rank`}</span></h2>
+            <div class="panel"><h2>Movies ${avgChip(movies)}<button class="avgchip cardbtn" data-card="movies" title="make a shareable top-10 image">top 10 card</button>${movies.length ? `<button class="avgchip cardbtn" data-card="movies-all" title="make a shareable image of the whole ranked list">full list card</button>` : ""}<span class="note">${demoMode ? "IMDb's top 10" : `${movies.length} ranked · drag to re-rank`}</span></h2>
               <div class="ranklist" data-kind="movies">${rankSeq(movies)}</div>
               <h2 class="subheading">Unranked <span class="note">${unrankedMovies.length} movies · drag up to rank</span></h2>
               <div class="unwatchedlist" data-kind="movie-pool">${unrankedMovies.map((t) => `<div class="row drag" data-drag data-title="${t}">
@@ -618,7 +628,7 @@ function renderRankings() {
   $("#view").querySelectorAll("button.guess").forEach((btn) =>
     btn.addEventListener("click", () => openGuessPop(btn)));
   const cards = {
-    movies: () => openShareCard(movies, demoMode ? "AN EXAMPLE TOP 10 MOVIES" : "MY TOP 10 MOVIES", "marvel-ranked-top10-movies.png"),
+    movies: () => openShareCard(movies, demoMode ? "IMDB'S TOP 10 MOVIES" : "MY TOP 10 MOVIES", "marvel-ranked-top10-movies.png"),
     shows: () => openShareCard(shows, "MY TOP 10 SHOWS", "marvel-ranked-top10-shows.png"),
     "movies-all": () => openShareCard(movies, `ALL ${movies.length} MOVIES, RANKED`, "marvel-ranked-all-movies.png", 10, true),
     "shows-all": () => openShareCard(shows, `ALL ${shows.length} SHOWS, RANKED`, "marvel-ranked-all-shows.png", 10, true),
