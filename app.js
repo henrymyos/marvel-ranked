@@ -594,6 +594,8 @@ function showcaseCell(item) {
 }
 
 function renderShowcase() {
+  // Nothing but the board: the tabs belong to the app the button opens.
+  document.body.classList.add("showcase-on");
   const top = byRank(movies).slice(0, 10);
   const cell = (rank) => (top[rank - 1] ? showcaseCell(top[rank - 1]) : "");
   $("#view").innerHTML = `
@@ -602,11 +604,7 @@ function renderShowcase() {
       <div class="showcase-podium">${cell(2)}${cell(1)}${cell(3)}</div>
       <div class="showcase-row">${[4, 5, 6, 7].map(cell).join("")}</div>
       <div class="showcase-row">${[8, 9, 10].map(cell).join("")}</div>
-      <div class="showcase-cta">
-        <button id="showcase-start">Make your own</button>
-        <p class="fineprint">Someone else's top 10 — open the board to drag it into your own order,
-          or start from scratch.</p>
-      </div>
+      <div class="showcase-cta"><button id="showcase-start">Make your own</button></div>
     </div>`;
   $("#showcase-start").addEventListener("click", leaveShowcase);
 }
@@ -614,6 +612,7 @@ function renderShowcase() {
 function leaveShowcase() {
   if (!showcase) return;
   showcase = false;
+  document.body.classList.remove("showcase-on");
   renderDemoBanner();
   views[currentView]();
 }
@@ -1491,8 +1490,6 @@ document.querySelector("nav.tabs").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-view]");
   if (!btn) return;
   document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("active", b === btn));
-  showcase = false;
-  renderDemoBanner();
   currentView = btn.dataset.view;
   views[currentView]();
 });

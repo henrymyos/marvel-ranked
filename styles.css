@@ -41,7 +41,7 @@ header.site::after {
   background: radial-gradient(ellipse at center, rgba(13, 13, 13, 0.45) 0%, rgba(13, 13, 13, 0.88) 100%);
 }
 header.site h1 {
-  position: relative; z-index: 2;
+  position: relative; z-index: 2; text-align: center;
   background: var(--marvel-red); color: #fff;
   font-size: 40px; font-weight: 900; text-transform: uppercase;
   letter-spacing: 0.06em; line-height: 1.1; padding: 8px 26px 10px;
@@ -338,7 +338,10 @@ button.cardbtn:hover { color: var(--text-primary); }
 
 /* First-visit showcase: the top 10 as covers alone, in the shape of the
    shareable card — #1 big in the middle, then rows of four and three */
-.showcase { max-width: 540px; margin: 24px auto 0; }
+.showcase { max-width: 540px; margin: 36px auto 0; }
+/* While it is up, the board is the whole page — no tabs, and no sheet-sync
+   footer, which is a note to the site's owner rather than to a visitor */
+body.showcase-on nav.tabs, body.showcase-on footer { display: none; }
 .showcase-sub {
   text-align: center; color: var(--text-muted);
   font-size: 12px; font-weight: 700; letter-spacing: 0.16em; margin-bottom: 16px;
