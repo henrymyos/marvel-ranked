@@ -122,6 +122,10 @@ if (!account && localStorage.getItem(EDITS_KEY) === null) {
   demoMode = applyPack({ movies: exampleTopTen() });
 }
 
+// The showcase is the first thing a shared link shows; the banner belongs to
+// the working board behind it, so only one of the two is ever up.
+let showcase = demoMode;
+
 // Ends the example — called from saveEdits, so every path that writes a
 // ranking (a drag, an undo, "start from scratch") lands here exactly once.
 function endDemo() {
@@ -133,7 +137,7 @@ function endDemo() {
 
 function renderDemoBanner() {
   const existing = document.querySelector(".demo-banner");
-  if (!demoMode) { existing?.remove(); return; }
+  if (!demoMode || showcase) { existing?.remove(); return; }
   if (existing) return;
   const el = document.createElement("div");
   el.className = "demo-banner";
@@ -576,7 +580,46 @@ function comingUpPanel(titles, kind) {
   </div>`;
 }
 
+// First visit lands on the picture people actually share: the top 10 as
+// covers alone, in the podium the "top 10 card" draws — #1 big in the middle,
+// then rows of four and three. The working board is one click (or one tab)
+// away, and any way out of here is permanent for the session.
+function showcaseCell(item) {
+  const src = COVERS[item.title];
+  return `<figure title="${item.title}">
+    ${src ? `<img src="${src}" alt="${item.title}">`
+      : `<span class="noimg">${item.title.replace(/[^A-Z]/g, "").slice(0, 2) || item.title[0]}</span>`}
+    <span class="badge">${item.rank}</span>
+  </figure>`;
+}
+
+function renderShowcase() {
+  const top = byRank(movies).slice(0, 10);
+  const cell = (rank) => (top[rank - 1] ? showcaseCell(top[rank - 1]) : "");
+  $("#view").innerHTML = `
+    <div class="showcase">
+      <p class="showcase-sub">MY TOP 10 MOVIES</p>
+      <div class="showcase-podium">${cell(2)}${cell(1)}${cell(3)}</div>
+      <div class="showcase-row">${[4, 5, 6, 7].map(cell).join("")}</div>
+      <div class="showcase-row">${[8, 9, 10].map(cell).join("")}</div>
+      <div class="showcase-cta">
+        <button id="showcase-start">Make your own</button>
+        <p class="fineprint">Someone else's top 10 — open the board to drag it into your own order,
+          or start from scratch.</p>
+      </div>
+    </div>`;
+  $("#showcase-start").addEventListener("click", leaveShowcase);
+}
+
+function leaveShowcase() {
+  if (!showcase) return;
+  showcase = false;
+  renderDemoBanner();
+  views[currentView]();
+}
+
 function renderRankings() {
+  if (showcase) return renderShowcase();
   closeGuessPop();
   const edited = localStorage.getItem(EDITS_KEY) !== null;
   const upMovies = UPCOMING.filter((t) => !isUpcomingShow(t));
@@ -1448,6 +1491,8 @@ document.querySelector("nav.tabs").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-view]");
   if (!btn) return;
   document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("active", b === btn));
+  showcase = false;
+  renderDemoBanner();
   currentView = btn.dataset.view;
   views[currentView]();
 });
