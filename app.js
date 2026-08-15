@@ -1368,7 +1368,8 @@ function renderRoster(cfg) {
   const byKey = new Map(cfg.entries.map((e) => [e.key, e]));
   $("#view").innerHTML = `
     <div class="panel rosterwrap">
-      <h2>${cfg.heading} <button class="avgchip cardbtn" id="roster-card"
+      <h2>${cfg.heading} <button class="avgchip cardbtn" id="roster-h2h"
+        title="rank by picking one at a time instead of dragging">head to head</button><button class="avgchip cardbtn" id="roster-card"
         title="make a shareable top-${cfg.cardLimit} image">top ${cfg.cardLimit} card</button><span class="note">${cfg.note}</span></h2>
       <div class="rosterlist${cfg.portraits ? " portraits" : ""}">${order.map((key, i) => {
         const e = byKey.get(key);
@@ -1395,6 +1396,146 @@ function renderRoster(cfg) {
   $("#roster-card")?.addEventListener("click", () =>
     openShareCard(order.map((key, i) => ({ title: key, rank: i + 1 })),
       cfg.cardTitle, cfg.cardFile, cfg.cardLimit));
+  $("#roster-h2h")?.addEventListener("click", () => openHeadToHead(cfg, order));
+}
+
+// Head-to-head: dragging 57 characters into order is a slog, so this asks
+// "which one?" instead. The list's current order seeds the ratings, so every
+// answer refines what's there rather than starting from noise — a dozen
+// matchups already move things, and there's no finish line to reach. Elo
+// keeps it honest: beating something far above you is worth several places,
+// beating the item below you is worth almost nothing.
+const H2H_SEED_SPREAD = 8; // rating points per starting place
+// Elo's K, per entry: big while an entry is new and its place is really just
+// the old list's opinion, settling as it earns one of its own.
+const h2hStep = (matches) => 20 + 60 / (1 + matches);
+
+function openHeadToHead(cfg, order) {
+  const byKey = new Map(cfg.entries.map((e) => [e.key, e]));
+  const mid = (order.length - 1) / 2;
+  const rating = new Map(order.map((k, i) => [k, 1500 + (mid - i) * H2H_SEED_SPREAD]));
+  const seen = new Map(order.map((k) => [k, 0]));
+  const streak = new Map(order.map((k) => [k, 0]));
+  const faced = new Set();
+  const pairKey = (a, b) => [a, b].sort().join("|");
+  const standing = () => [...rating.entries()].sort((a, b) => b[1] - a[1]).map(([k]) => k);
+  const pick = (xs) => xs[Math.floor(Math.random() * xs.length)];
+  let rounds = 0;
+  let pair = null;
+
+  // Ask about the least-seen entry, against a neighbour in the current
+  // standing: those are the pairs whose answer actually reorders anything.
+  // The window widens only when the near ones are used up.
+  function nextPair() {
+    const rank = standing();
+    const pos = new Map(rank.map((k, i) => [k, i]));
+    const fewest = Math.min(...seen.values());
+    // Normally a random least-seen entry; the rest of the standings are a
+    // fallback, so "no matchups left" is only reported when that is true —
+    // one entry having faced everyone doesn't end the session.
+    for (const a of [pick(rank.filter((k) => seen.get(k) <= fewest + 1)), ...rank]) {
+      // A settled entry meets a neighbour: that's the matchup whose answer
+      // isn't already implied by the list. An entry on a run of wins (or
+      // losses) is in the wrong place rather than on form, so it meets
+      // someone that far up — further with each win — and a badly misplaced
+      // one climbs in a few taps instead of a few dozen.
+      const run = streak.get(a) ?? 0;
+      const target = pos.get(a) - Math.sign(run) * Math.max(0, Math.abs(run) - 1) * 9;
+      const options = rank
+        .filter((k) => k !== a && !faced.has(pairKey(a, k)))
+        .sort((x, y) => Math.abs(pos.get(x) - target) - Math.abs(pos.get(y) - target));
+      if (options.length) {
+        const b = pick(options.slice(0, 4));
+        return Math.random() < 0.5 ? [a, b] : [b, a];
+      }
+    }
+    return null; // everything has faced everything
+  }
+
+  const modal = document.createElement("div");
+  modal.className = "share-modal h2h-modal";
+  document.body.appendChild(modal);
+
+  function draw(flash = "") {
+    const [a, b] = pair ?? [];
+    modal.innerHTML = `
+      <div class="share-box h2h-box">
+        <h2>${cfg.h2hPrompt} <span class="note">tap the one you rate higher</span></h2>
+        ${pair ? `<div class="h2h-pair">${[a, b].map((k) => {
+          const e = byKey.get(k);
+          return `<button class="h2hpick" data-key="${k}">
+            ${e.img ? `<img src="${e.img}" alt="">` : `<span class="noimg">${e.name.slice(0, 2).toUpperCase()}</span>`}
+            <span class="h2hname">${e.name}</span>
+            <span class="h2hsub" style="color:${e.color}">${e.sub}</span>
+          </button>`;
+        }).join("")}</div>
+        <button class="h2hskip">can't choose — skip</button>`
+        : `<p class="fineprint h2hdone">Every matchup has been played. That order is as settled as it gets.</p>`}
+        <p class="h2hflash">${flash}</p>
+        <div class="share-actions">
+          <button class="chip" data-apply${rounds ? "" : " disabled"}>${rounds ? `Apply — ${rounds} matchup${rounds === 1 ? "" : "s"}` : "Apply"}</button>
+          <button class="chip" data-cancel>Cancel</button>
+        </div>
+      </div>`;
+    modal.querySelectorAll(".h2hpick").forEach((btn) =>
+      btn.addEventListener("click", () => choose(btn.dataset.key)));
+    modal.querySelector(".h2hskip")?.addEventListener("click", () => {
+      faced.add(pairKey(a, b));
+      pair = nextPair();
+      draw();
+    });
+    modal.querySelector("[data-apply]").addEventListener("click", apply);
+    modal.querySelector("[data-cancel]").addEventListener("click", close);
+  }
+
+  function choose(winner) {
+    const loser = pair[0] === winner ? pair[1] : pair[0];
+    faced.add(pairKey(winner, loser));
+    const rw = rating.get(winner), rl = rating.get(loser);
+    // How surprising the result was: beating something well above you moves
+    // the list; beating the entry just below you barely does.
+    const surprise = 1 - 1 / (1 + 10 ** ((rl - rw) / 400));
+    rating.set(loser, rl - h2hStep(seen.get(loser)) * surprise);
+    // The tap is an assertion, not a data point: the winner ends up above
+    // the loser, by a place at least. Elo alone would leave something you
+    // just beat from thirty places down still ahead of you, which reads as
+    // the answer having been ignored.
+    rating.set(winner, Math.max(rw + h2hStep(seen.get(winner)) * surprise,
+      rating.get(loser) + H2H_SEED_SPREAD));
+    seen.set(winner, seen.get(winner) + 1);
+    seen.set(loser, seen.get(loser) + 1);
+    streak.set(winner, Math.max(1, (streak.get(winner) ?? 0) + 1));
+    streak.set(loser, Math.min(-1, (streak.get(loser) ?? 0) - 1));
+    rounds++;
+    const place = standing().indexOf(winner) + 1;
+    pair = nextPair();
+    draw(`${byKey.get(winner).name} → #${place}`);
+  }
+
+  function apply() {
+    const snap = snapshotState();
+    guesses[cfg.storeKey] = standing();
+    pushGuesses();
+    offerUndo(snap);
+    close();
+    views[currentView]();
+  }
+
+  function close() {
+    document.removeEventListener("keydown", onKey);
+    modal.remove();
+  }
+
+  function onKey(e) {
+    if (e.key === "Escape") return close();
+    if (!pair) return;
+    if (e.key === "ArrowLeft") choose(pair[0]);
+    if (e.key === "ArrowRight") choose(pair[1]);
+  }
+
+  document.addEventListener("keydown", onKey);
+  pair = nextPair();
+  draw();
 }
 
 // A group legend — the color key shared by the character tabs.
@@ -1426,6 +1567,7 @@ const SPIDER_ERAS = {
 function renderSpiderman() {
   renderRoster({
     storeKey: "__spiderman",
+    h2hPrompt: "Better Spider-Man movie?",
     entries: SPIDERMAN_MOVIES.map((t) => {
       const [era, color] = SPIDER_ERAS[t];
       return { key: t, name: t, sub: era, color, img: COVERS[t] };
@@ -1450,6 +1592,7 @@ function characterEntries(roster, groups) {
 function renderHeroes() {
   renderRoster({
     storeKey: "__heroes",
+    h2hPrompt: "Better hero?",
     entries: characterEntries(HEROES, HERO_GROUPS),
     heading: "Heroes, ranked",
     note: `all ${HEROES.length} of them · drag to reorder`,
@@ -1464,6 +1607,7 @@ function renderHeroes() {
 function renderVillains() {
   renderRoster({
     storeKey: "__villains",
+    h2hPrompt: "Better villain?",
     entries: characterEntries(VILLAINS, VILLAIN_GROUPS),
     heading: "Villains, ranked",
     note: `all ${VILLAINS.length} of them · drag to reorder`,

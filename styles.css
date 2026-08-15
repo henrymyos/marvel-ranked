@@ -215,6 +215,36 @@ button.cardbtn:hover { color: var(--text-primary); }
 .share-actions { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
 .share-actions .chip { font: inherit; font-size: 13px; cursor: pointer; text-decoration: none; }
 
+/* Head-to-head: two picture cards, pick one, repeat */
+.h2h-box { max-width: 460px; text-align: center; }
+.h2h-box h2 { font-size: 17px; margin-bottom: 12px; }
+.h2h-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.h2hpick {
+  display: flex; flex-direction: column; gap: 0; padding: 0 0 8px;
+  background: var(--track); border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; font: inherit; color: inherit; cursor: pointer; text-align: center;
+}
+.h2hpick:hover, .h2hpick:focus-visible { border-color: var(--text-muted); filter: brightness(1.08); }
+.h2hpick:active { transform: scale(0.985); }
+.h2hpick img, .h2hpick .noimg {
+  width: 100%; aspect-ratio: 3 / 4; object-fit: cover; display: block; background: #1c1c24;
+}
+.h2hpick .noimg {
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; color: #6b6b78;
+}
+.h2hname { font-size: 13px; font-weight: 600; margin-top: 7px; padding: 0 6px; }
+.h2hsub { font-size: 11px; font-weight: 600; padding: 0 6px; }
+.h2hskip {
+  background: none; border: none; font: inherit; font-size: 12px;
+  color: var(--text-muted); cursor: pointer; margin-top: 10px; text-decoration: underline;
+}
+.h2hskip:hover { color: var(--text-secondary); }
+/* Reserves its line, so the box doesn't jump between matchups */
+.h2hflash { min-height: 18px; font-size: 12px; color: var(--text-secondary); margin-top: 8px; }
+.h2hdone { margin-top: 8px; }
+.h2h-box .chip[disabled] { opacity: 0.45; cursor: default; }
+
 /* Cover detail popup: big poster + rating/rank profile */
 .card[data-detail] { cursor: pointer; }
 .detail-box { max-width: 320px; text-align: center; animation: detailpop 0.16s ease-out; }
