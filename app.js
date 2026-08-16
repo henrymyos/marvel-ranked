@@ -1028,7 +1028,9 @@ function renderStats() {
     }).sort((a, b) => b.average - a.average);
   };
 
-  const byPhase = groupStats(all, "phase");
+  // Phase tiles are movies only. A phase is remembered for its films, and
+  // its handful of shows would otherwise swing the average around.
+  const byPhase = groupStats(movies, "phase");
   const byYear = groupStats(all, "year");
   const movieAvg = avg(movies.map((m) => m.rating));
   const showAvg = avg(shows.map((s) => s.rating));
@@ -1037,8 +1039,8 @@ function renderStats() {
   const tiles = [
     movies.length && { label: "Movie average", value: fmt(movieAvg), dotRating: movieAvg, sub: `${movies.length} films` },
     shows.length && { label: "Show average", value: fmt(showAvg), dotRating: showAvg, sub: `${shows.length} shows` },
-    bestPhase && { label: "Best phase", value: `Phase ${bestPhase.key}`, dotRating: bestPhase.average, sub: `${fmt(bestPhase.average)} average` },
-    worstPhase && { label: "Worst phase", value: `Phase ${worstPhase.key}`, dotRating: worstPhase.average, sub: `${fmt(worstPhase.average)} average` },
+    bestPhase && { label: "Best phase", value: `Phase ${bestPhase.key}`, dotRating: bestPhase.average, sub: `${fmt(bestPhase.average)} average · ${bestPhase.count} film${bestPhase.count === 1 ? "" : "s"}` },
+    worstPhase && { label: "Worst phase", value: `Phase ${worstPhase.key}`, dotRating: worstPhase.average, sub: `${fmt(worstPhase.average)} average · ${worstPhase.count} film${worstPhase.count === 1 ? "" : "s"}` },
     bestYear && { label: "Best year", value: bestYear.key, dotRating: bestYear.average, sub: `${fmt(bestYear.average)} average` },
     worstYear && { label: "Worst year", value: worstYear.key, dotRating: worstYear.average, sub: `${fmt(worstYear.average)} average` },
   ].filter(Boolean);
