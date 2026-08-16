@@ -273,6 +273,34 @@ button.cardbtn:hover { color: var(--text-primary); }
 .tile .sub { font-size: 12px; color: var(--text-secondary); display: flex; align-items: center; gap: 6px; }
 .tile .sub .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
+/* Streaks: the run itself, as the posters, with each film's score on it */
+.runstrip { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.runstrip figure { position: relative; width: 58px; border-radius: 7px; overflow: hidden; }
+.runstrip img, .runstrip .noimg {
+  display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; background: #1c1c24;
+}
+.runstrip .noimg {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #6b6b78;
+}
+.runstrip .score {
+  position: absolute; right: 3px; bottom: 3px; border-radius: 5px;
+  padding: 0 5px; font-size: 11px; font-weight: 700;
+}
+.runspan { margin-top: 6px; }
+
+/* How you grade: the two spreads side by side, then the biggest disagreement */
+.gradepair { display: flex; gap: 28px; margin: 4px 0 8px; }
+.gradepair .big { font-size: 26px; font-weight: 600; display: block; line-height: 1.25; }
+.gradepair .sub { font-size: 12px; color: var(--text-muted); }
+.taker { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.taker img { width: 42px; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
+.takertext { flex: 1; min-width: 0; }
+.takertitle { font-size: 14px; font-weight: 600; }
+.taker .score {
+  font-size: 12px; font-weight: 700; border-radius: 5px; padding: 1px 7px;
+}
+
 /* Column charts: height carries the rating; color repeats the site scale */
 .chart { --h: 140px; display: flex; gap: 8px; margin-top: 6px; }
 .chart .yaxis { position: relative; width: 18px; height: var(--h); flex-shrink: 0; }

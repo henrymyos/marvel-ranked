@@ -1018,8 +1018,95 @@ const NOTHING_RANKED = `<div class="panel"><h2>Nothing ranked yet</h2>
   <p class="fineprint">Head to the Rankings tab and drag titles out of the unranked pools —
   stats appear as soon as something has a rating.</p></div>`;
 
+// The longest run of consecutive releases whose ratings all pass a test.
+// Walks every film, not just the ranked ones: an unranked film is a gap in
+// the record rather than a good result or a bad one, so it breaks the run.
+const GOLDEN = 7, COLD = 3;
+
+function releaseRun(test) {
+  const rated = new Map(movies.map((m) => [m.title, m]));
+  let best = [], run = [];
+  for (const title of byRelease([...MOVIE_META.values()])) {
+    const m = rated.get(title);
+    run = m && test(m.rating) ? [...run, m] : [];
+    if (run.length > best.length) best = run;
+  }
+  return best;
+}
+
+function runStrip(films) {
+  const years = [films[0].year, films[films.length - 1].year].filter(Boolean);
+  const span = years.length && years[0] !== years[1] ? `${years[0]}–${years[1]}` : years[0] ?? "";
+  return `<div class="runstrip">${films.map((m) => {
+    const c = ratingColor(m.rating);
+    const src = COVERS[m.title];
+    return `<figure title="${m.title} — ${m.rating}/10">
+      ${src ? `<img src="${src}" alt="${m.title}" loading="lazy">`
+        : `<span class="noimg">${m.title.replace(/[^A-Z]/g, "").slice(0, 2)}</span>`}
+      <span class="score" style="background:${c.bg};color:${c.ink}">${m.rating}</span>
+    </figure>`;
+  }).join("")}</div>
+  <p class="fineprint runspan">${films[0].title} → ${films[films.length - 1].title}${span ? ` · ${span}` : ""}</p>`;
+}
+
+// Spread: how much of the 0-10 scale someone actually uses. IMDb's ratings
+// for these films sit in a narrow band, so the comparison is really "do you
+// commit to an opinion" — worth saying out loud rather than implying.
+const stdev = (xs) => {
+  const m = avg(xs);
+  return Math.sqrt(avg(xs.map((x) => (x - m) ** 2)));
+};
+
+function gradingPanel() {
+  const rated = movies.filter((m) => IMDB[m.title]?.rating != null);
+  if (rated.length < 3) return "";
+  const mine = rated.map((m) => m.rating);
+  const theirs = rated.map((m) => IMDB[m.title].rating);
+  const mySpread = stdev(mine), theirSpread = stdev(theirs);
+  const gap = avg(mine) - avg(theirs);
+  const ratio = theirSpread ? mySpread / theirSpread : 0;
+  const hottest = rated
+    .map((m) => ({ m, delta: m.rating - IMDB[m.title].rating }))
+    .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0];
+  const src = COVERS[hottest.m.title];
+  const c = ratingColor(hottest.m.rating);
+  return `
+    <div class="panel">
+      <h2>How you grade <span class="note">against IMDb · ${rated.length} films</span></h2>
+      <div class="gradepair">
+        <div><span class="big">±${fmt(mySpread)}</span><span class="sub">your spread</span></div>
+        <div><span class="big">±${fmt(theirSpread)}</span><span class="sub">IMDb voters</span></div>
+      </div>
+      <p class="fineprint">You swing ${fmt(ratio)}× ${ratio >= 1 ? "wider" : "narrower"} than the crowd, and rate
+        ${gap === 0 ? "dead level with them" : `${fmt(Math.abs(gap))} ${gap > 0 ? "higher" : "lower"} on average`}.</p>
+      <h2 class="subheading">Hottest take</h2>
+      <div class="taker">
+        ${src ? `<img src="${src}" alt="" loading="lazy">` : ""}
+        <div class="takertext">
+          <div class="takertitle">${hottest.m.title}</div>
+          <div class="fineprint">you <span class="score" style="background:${c.bg};color:${c.ink}">${hottest.m.rating}</span>
+            · IMDb ${IMDB[hottest.m.title].rating} ·
+            ${fmt(Math.abs(hottest.delta))} apart, ${hottest.delta > 0 ? "in its favour" : "against it"}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function streaksPanel() {
+  const golden = releaseRun((r) => r >= GOLDEN);
+  const cold = releaseRun((r) => r <= COLD);
+  if (golden.length < 2 && cold.length < 2) return "";
+  return `
+    <div class="panel">
+      <h2>Streaks <span class="note">movies in release order · an unranked film breaks the run</span></h2>
+      ${golden.length > 1 ? `<h2 class="subheading">Golden run
+        <span class="note">${golden.length} in a row rated ${GOLDEN}+</span></h2>${runStrip(golden)}` : ""}
+      ${cold.length > 1 ? `<h2 class="subheading">Cold streak
+        <span class="note">${cold.length} in a row rated ${COLD} or less</span></h2>${runStrip(cold)}` : ""}
+    </div>`;
+}
+
 function renderStats() {
-  const all = [...movies, ...shows];
   const groupStats = (raw, key) => {
     const items = raw.filter((i) => i[key] != null);
     return [...new Set(items.map((i) => i[key]))].map((k) => {
@@ -1028,10 +1115,12 @@ function renderStats() {
     }).sort((a, b) => b.average - a.average);
   };
 
-  // Phase tiles are movies only. A phase is remembered for its films, and
-  // its handful of shows would otherwise swing the average around.
+  // Phase and year tiles are movies only. A phase (or a year) is remembered
+  // for its films, and the shows that landed in it would otherwise swing the
+  // average around. The charts below still have their own movies/shows/both
+  // pickers.
   const byPhase = groupStats(movies, "phase");
-  const byYear = groupStats(all, "year");
+  const byYear = groupStats(movies, "year");
   const movieAvg = avg(movies.map((m) => m.rating));
   const showAvg = avg(shows.map((s) => s.rating));
   const bestPhase = byPhase[0], worstPhase = byPhase[byPhase.length - 1];
@@ -1041,8 +1130,8 @@ function renderStats() {
     shows.length && { label: "Show average", value: fmt(showAvg), dotRating: showAvg, sub: `${shows.length} shows` },
     bestPhase && { label: "Best phase", value: `Phase ${bestPhase.key}`, dotRating: bestPhase.average, sub: `${fmt(bestPhase.average)} average · ${bestPhase.count} film${bestPhase.count === 1 ? "" : "s"}` },
     worstPhase && { label: "Worst phase", value: `Phase ${worstPhase.key}`, dotRating: worstPhase.average, sub: `${fmt(worstPhase.average)} average · ${worstPhase.count} film${worstPhase.count === 1 ? "" : "s"}` },
-    bestYear && { label: "Best year", value: bestYear.key, dotRating: bestYear.average, sub: `${fmt(bestYear.average)} average` },
-    worstYear && { label: "Worst year", value: worstYear.key, dotRating: worstYear.average, sub: `${fmt(worstYear.average)} average` },
+    bestYear && { label: "Best year", value: bestYear.key, dotRating: bestYear.average, sub: `${fmt(bestYear.average)} average · ${bestYear.count} film${bestYear.count === 1 ? "" : "s"}` },
+    worstYear && { label: "Worst year", value: worstYear.key, dotRating: worstYear.average, sub: `${fmt(worstYear.average)} average · ${worstYear.count} film${worstYear.count === 1 ? "" : "s"}` },
   ].filter(Boolean);
 
   // Rating distribution: how many titles landed on each 0-10 score.
@@ -1080,6 +1169,8 @@ function renderStats() {
     }],
   });
 
+  const streaks = streaksPanel(), grading = gradingPanel();
+
   return `
     <div class="tiles">${tiles.map(statTile).join("")}</div>
     <div class="panel"><h2>Ratings in release order <span class="note">movies</span></h2>
@@ -1091,6 +1182,7 @@ function renderStats() {
       <div class="panel"><h2>Rating distribution ${segControl("dist")}</h2>${histogram}</div>
       <div class="panel"><h2>Average by year ${segControl("year")}</h2>${yearChart}</div>
     </div>
+    ${streaks || grading ? `<div class="grid-2 section-gap">${streaks}${grading}</div>` : ""}
     <div class="section-gap"></div>`;
 }
 
