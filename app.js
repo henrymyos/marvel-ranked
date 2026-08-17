@@ -1018,20 +1018,27 @@ const NOTHING_RANKED = `<div class="panel"><h2>Nothing ranked yet</h2>
   <p class="fineprint">Head to the Rankings tab and drag titles out of the unranked pools —
   stats appear as soon as something has a rating.</p></div>`;
 
-// The longest run of consecutive releases whose ratings all pass a test.
+// Where the bar sits for a hot or cold run is an opinion, not a constant, so
+// it's a control on the page. Golden asks for at least N, cold for at most N.
+const GOLDEN_LEVELS = [6, 7, 8, 9], COLD_LEVELS = [4, 3, 2, 1];
+const streakLevel = { golden: 7, cold: 3 };
+
+// Every longest run of consecutive releases whose ratings all pass a test —
+// all of them when several tie, since picking one would hide the rest.
 // Walks every film, not just the ranked ones: an unranked film is a gap in
 // the record rather than a good result or a bad one, so it breaks the run.
-const GOLDEN = 7, COLD = 3;
-
-function releaseRun(test) {
+function releaseRuns(test) {
   const rated = new Map(movies.map((m) => [m.title, m]));
-  let best = [], run = [];
+  const runs = [];
+  let run = [];
   for (const title of byRelease([...MOVIE_META.values()])) {
     const m = rated.get(title);
-    run = m && test(m.rating) ? [...run, m] : [];
-    if (run.length > best.length) best = run;
+    if (!m || !test(m.rating)) { run = []; continue; }
+    run.push(m);
+    if (run.length === 1) runs.push(run);
   }
-  return best;
+  const longest = Math.max(0, ...runs.map((r) => r.length));
+  return longest < 2 ? [] : runs.filter((r) => r.length === longest);
 }
 
 function runStrip(films) {
@@ -1092,17 +1099,35 @@ function gradingPanel() {
     </div>`;
 }
 
+function levelControl(kind, levels, label) {
+  return `<span class="seg">${levels.map((n) =>
+    `<button class="segbtn${streakLevel[kind] === n ? " active" : ""}" data-streak="${kind}" data-level="${n}">${label(n)}</button>`)
+    .join("")}</span>`;
+}
+
+function streakSection(kind, heading, levels, label, bar, runs) {
+  return `
+    <h2 class="subheading">${heading} ${levelControl(kind, levels, label)}</h2>
+    <p class="fineprint">${runs.length
+      ? `${runs[0].length} in a row rated ${bar}${runs.length > 1 ? ` · ${runs.length} runs tied` : ""}`
+      : `Nothing back to back rated ${bar}`}</p>
+    ${runs.map(runStrip).join("")}`;
+}
+
 function streaksPanel() {
-  const golden = releaseRun((r) => r >= GOLDEN);
-  const cold = releaseRun((r) => r <= COLD);
-  if (golden.length < 2 && cold.length < 2) return "";
+  const golden = releaseRuns((r) => r >= streakLevel.golden);
+  const cold = releaseRuns((r) => r <= streakLevel.cold);
+  // An empty section is worth showing when a different bar would fill it —
+  // that's what the buttons are for. A board with no back-to-back films at
+  // any setting has nothing to offer, so the panel stays away entirely.
+  const anywhere = GOLDEN_LEVELS.some((n) => releaseRuns((r) => r >= n).length) ||
+    COLD_LEVELS.some((n) => releaseRuns((r) => r <= n).length);
+  if (!anywhere) return "";
   return `
     <div class="panel">
       <h2>Streaks <span class="note">movies in release order · an unranked film breaks the run</span></h2>
-      ${golden.length > 1 ? `<h2 class="subheading">Golden run
-        <span class="note">${golden.length} in a row rated ${GOLDEN}+</span></h2>${runStrip(golden)}` : ""}
-      ${cold.length > 1 ? `<h2 class="subheading">Cold streak
-        <span class="note">${cold.length} in a row rated ${COLD} or less</span></h2>${runStrip(cold)}` : ""}
+      ${streakSection("golden", "Golden run", GOLDEN_LEVELS, (n) => `${n}+`, `${streakLevel.golden}+`, golden)}
+      ${streakSection("cold", "Cold streak", COLD_LEVELS, (n) => `≤${n}`, `${streakLevel.cold} or less`, cold)}
     </div>`;
 }
 
@@ -1237,8 +1262,10 @@ function renderPhases() {
         ${franchises.map((f) => meterRow({ rank: "", title: f.name, rating: fmt(f.average), tag: f.ratings.join(" · ") })).join("")}
       </div>
     </div>`;
-  $("#view").querySelectorAll(".segbtn").forEach((b) =>
+  $("#view").querySelectorAll(".segbtn[data-chart]").forEach((b) =>
     b.addEventListener("click", () => { statsFilter[b.dataset.chart] = b.dataset.pick; renderPhases(); }));
+  $("#view").querySelectorAll(".segbtn[data-streak]").forEach((b) =>
+    b.addEventListener("click", () => { streakLevel[b.dataset.streak] = +b.dataset.level; renderPhases(); }));
 }
 
 function vsRow(cfg, m) {
