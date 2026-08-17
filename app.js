@@ -1020,7 +1020,7 @@ const NOTHING_RANKED = `<div class="panel"><h2>Nothing ranked yet</h2>
 
 // Where the bar sits for a hot or cold run is an opinion, not a constant, so
 // it's a control on the page. Golden asks for at least N, cold for at most N.
-const GOLDEN_LEVELS = [6, 7, 8, 9], COLD_LEVELS = [4, 3, 2, 1];
+const GOLDEN_LEVELS = [3, 4, 5, 6, 7, 8, 9], COLD_LEVELS = [7, 6, 5, 4, 3, 2, 1];
 const streakLevel = { golden: 7, cold: 3 };
 
 // Every longest run of consecutive releases whose ratings all pass a test —
