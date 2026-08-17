@@ -1240,7 +1240,11 @@ function franchiseRatings(name) {
     return t === n || t === `the ${n}` ||
       t.startsWith(`${n}:`) || t.startsWith(`${n} `) ||
       t.startsWith(`the ${n}:`) || t.startsWith(`the ${n} `);
-  }).map((m) => m.rating);
+  })
+    // Release order, not rank order: the list of scores reads as the run of
+    // a franchise over time, so it has to follow the films, not the board.
+    .sort((a, b) => (a.release ?? Infinity) - (b.release ?? Infinity))
+    .map((m) => m.rating);
 }
 
 function renderPhases() {
