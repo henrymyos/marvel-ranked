@@ -287,12 +287,15 @@ const isUpcomingShow = (t) => /season\b/i.test(t) || UPCOMING_SHOW_HINTS.include
 // blue 7, indigo 8 — with purple at 9 and pink reserved for perfect 10s.
 // Every tier boundary is a clear hue change rather than a subtle shade shift.
 // Ink is chosen per step for contrast.
+// A rainbow can't also run light-to-dark, so hue alone can't say "higher".
+// The yellows were the brightest cells on the page at 3 and 4, shouting over
+// the 9s and 10s; they're toned down so the top of the scale stays loudest.
 const RATING_COLORS = [
   { bg: "#7f1d1d", ink: "#ffffff" }, // 0  dark red
   { bg: "#cf3535", ink: "#ffffff" }, // 1  red
   { bg: "#ef8146", ink: "#1a1a19" }, // 2  orange
-  { bg: "#f9cb5f", ink: "#1a1a19" }, // 3  yellow
-  { bg: "#c9c353", ink: "#1a1a19" }, // 4  yellow-green
+  { bg: "#e8b84f", ink: "#1a1a19" }, // 3  yellow
+  { bg: "#b8b04a", ink: "#1a1a19" }, // 4  yellow-green
   { bg: "#3cbb54", ink: "#1a1a19" }, // 5  bright green
   { bg: "#5aa7e6", ink: "#1a1a19" }, // 6  light blue
   { bg: "#2a78d6", ink: "#ffffff" }, // 7  blue
@@ -495,11 +498,18 @@ function makeDraggable(containers, onCommit) {
             return !best || d < best.d ? { z, d } : best;
           }, null).z;
         }
-        const candidates = [...target.children].filter((c) => c !== row && !c.classList.contains("fixed"));
-        const next = candidates.find((c) => {
-          const b = c.getBoundingClientRect();
-          return ev.clientY < b.top + b.height / 2;
-        }) ?? null;
+        const candidates = [...target.children]
+          .filter((c) => c !== row && !c.classList.contains("fixed"))
+          .map((c) => ({ c, b: c.getBoundingClientRect() }));
+        // A list laid out in columns needs the pointer read in reading order:
+        // a row further down always comes later, and within the same band the
+        // one to the right does. Single-column lists have no second column to
+        // confuse, so they keep the plain midpoint test.
+        const columns = candidates.some(({ b }, i) => i && Math.abs(b.top - candidates[i - 1].b.top) < 2);
+        const next = (candidates.find(({ b }) => columns
+          ? b.top + b.height / 2 - ev.clientY > b.height / 2 ||
+            (Math.abs(b.top + b.height / 2 - ev.clientY) <= b.height / 2 && b.left + b.width / 2 > ev.clientX)
+          : ev.clientY < b.top + b.height / 2)?.c) ?? null;
         if (row.parentElement !== target || next !== row.nextElementSibling) target.insertBefore(row, next);
       };
       const finish = (ev) => {
@@ -1502,8 +1512,10 @@ function renderRoster(cfg) {
           <span class="rank">${i + 1}</span>
           <div class="card" style="--phase:${e.color}">
             ${e.img ? `<img src="${e.img}" alt="" loading="lazy">` : `<span class="noimg">${e.name.slice(0, 2).toUpperCase()}</span>`}
-            <span class="name">${e.name}</span>
-            <span class="era" style="color:${e.color}">${e.sub}</span>
+            <span class="meta">
+              <span class="name">${e.name}</span>
+              <span class="era">${e.sub}</span>
+            </span>
           </div>
           <span class="grip" title="drag to reorder">⠿</span>
         </div>`;

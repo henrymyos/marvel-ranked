@@ -20,6 +20,13 @@
   <meta charset="UTF-8">
   <meta name="referrer" content="no-referrer">
   <style>
+    /* Same self-hosted face as the site, so the preview card and the page a
+       visitor lands on carry the same wordmark. */
+    @font-face {
+      font-family: "Oswald";
+      src: url("../fonts/oswald-latin.woff2") format("woff2");
+      font-weight: 400 700;
+    }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 1200px; height: 630px; overflow: hidden; }
     body {
@@ -30,8 +37,9 @@
     }
     h1 {
       background: #e62429; color: #fff; text-align: center;
-      font-size: 54px; font-weight: 900; text-transform: uppercase;
-      letter-spacing: 0.06em; line-height: 1.1; padding: 10px 34px 13px;
+      font-family: "Oswald", system-ui, sans-serif;
+      font-size: 60px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.07em; line-height: 1.15; padding: 8px 36px 11px;
       box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
     }
     .rows { display: grid; gap: 12px; }
