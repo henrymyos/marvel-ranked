@@ -11,7 +11,15 @@ const fmt = (n) => (Math.round(n * 100) / 100).toFixed(2).replace(/0$/, "").repl
 const MOVIE_META = new Map(MOVIES.map(({ rating, ...m }, i) => [m.title, { ...m, type: "movie", release: m.release ?? i + 1 }]));
 const SHOW_META = new Map(SHOWS.map(({ rating, ...s }, i) => [s.title, { ...s, type: "show", release: s.release ?? i + 1 }]));
 const UNWATCHED_META = new Map(UNWATCHED_SHOWS.map((u) => [u.title, { ...u, type: "show", release: u.release ?? null }]));
-const ALL_SHOW_TITLES = new Set([...SHOW_META.keys(), ...UNWATCHED_META.keys()]);
+// Pre-Disney+ seasons are a watchlist, not a ranking: they stay out of both
+// pools until they're added by hand from the Legacy TV tab. They are real
+// show titles though, so a saved pack may carry them. LEGACY_SHOWS is in
+// release order and every one of them predates WandaVision, hence the
+// negative release numbers — added, they sit at the left of release-order
+// views where they belong rather than at the end.
+const LEGACY_META = new Map(LEGACY_SHOWS.map((s, i) =>
+  [s.title, { ...s, type: "show", year: s.year ?? null, release: i - LEGACY_SHOWS.length }]));
+const ALL_SHOW_TITLES = new Set([...SHOW_META.keys(), ...UNWATCHED_META.keys(), ...LEGACY_META.keys()]);
 
 const byRelease = (metas) => [...metas]
   .sort((a, b) => (a.release ?? Infinity) - (b.release ?? Infinity))
@@ -30,10 +38,19 @@ const EDITS_KEY = "marvelRankedEdits.v2";
 localStorage.removeItem("marvelRankedEdits");
 localStorage.removeItem("marvelRankedGuesses");
 
+// Promoted legacy seasons ride in the guesses store: title -> rating, or
+// null while the season is still in the pool. The owner's rankings live in
+// the sheet cell by cell and the sheet has no row for a pre-Disney+ season,
+// so the rating would come back empty and the pool place would be lost on
+// the next load. The guesses store is saved and restored whole, so it can
+// carry what the sheet can't.
+const LEGACY_STORE = "__legacy";
+let legacyPromoted = {};
+
 // A show dragged into the rankings keeps its metadata if it ever had any;
 // otherwise phase/year stay null and phase- and year-based views skip it.
 const promotedShow = (title) => {
-  const meta = SHOW_META.get(title) ?? UNWATCHED_META.get(title);
+  const meta = SHOW_META.get(title) ?? UNWATCHED_META.get(title) ?? LEGACY_META.get(title);
   return meta ? { ...meta } : { title, type: "show", phase: null, year: null, release: null };
 };
 
@@ -60,14 +77,23 @@ function applyPack(saved) {
   // The saved unwatched list carries movie titles too (the web app keeps one
   // clear-these-ratings list); only real show titles count here.
   if (Array.isArray(saved.shows)) {
+    // A rating the sheet couldn't store comes back empty; fill it from the
+    // legacy store before judging the list, or one promoted season would
+    // reject every show ranking with it.
+    const packedShows = saved.shows.map((e) =>
+      e.r == null && Number.isInteger(legacyPromoted[e.t]) ? { ...e, r: legacyPromoted[e.t] } : e);
     const packedUn = (Array.isArray(saved.unwatched) ? saved.unwatched : []).filter((t) => ALL_SHOW_TITLES.has(t));
-    const union = [...saved.shows.map((e) => e.t), ...packedUn];
+    const union = [...packedShows.map((e) => e.t), ...packedUn];
     if (new Set(union).size === union.length && union.every((t) => ALL_SHOW_TITLES.has(t)) &&
-        saved.shows.every((e) => Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
+        packedShows.every((e) => Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
       shows.length = 0;
-      saved.shows.forEach((e, i) => shows.push({ ...promotedShow(e.t), rating: e.r, rank: i + 1 }));
+      packedShows.forEach((e, i) => shows.push({ ...promotedShow(e.t), rating: e.r, rank: i + 1 }));
       const seen = new Set(union);
-      unwatchedShows = [...packedUn,
+      // Same reason: a legacy season sitting in the pool has no sheet row to
+      // come back from, so the store is what remembers it.
+      const pooledLegacy = Object.keys(legacyPromoted)
+        .filter((t) => legacyPromoted[t] == null && LEGACY_META.has(t) && !seen.has(t));
+      unwatchedShows = [...pooledLegacy, ...packedUn,
         ...byRelease([...SHOW_META.values(), ...UNWATCHED_META.values()].filter((s) => !seen.has(s.title)))];
       applied = true;
     }
@@ -171,6 +197,15 @@ let saveSeq = 0;
 function saveEdits() {
   endDemo();
   const pack = (xs) => [...xs].sort((a, b) => a.rank - b.rank).map((i) => ({ t: i.title, r: i.rating }));
+  legacyPromoted = Object.fromEntries([
+    ...shows.filter((s) => LEGACY_META.has(s.title)).map((s) => [s.title, s.rating]),
+    ...unwatchedShows.filter((t) => LEGACY_META.has(t)).map((t) => [t, null]),
+  ]);
+  if (Object.keys(legacyPromoted).length) guesses[LEGACY_STORE] = legacyPromoted;
+  else delete guesses[LEGACY_STORE];
+  // The store lives in the guesses, so this save has to leave their local
+  // copy in step — otherwise a promoted season's rating is only in the pack.
+  localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
   // The sheet keeps a per-phase movie rating list and average (D/E/F rows);
   // recompute them here so the web app can keep those cells in step.
   const phases = [1, 2, 3, 4, 5, 6].map((p) => {
@@ -203,8 +238,15 @@ function saveEdits() {
     .then(() => fetchLive())
     .then((live) => {
       if (seq !== saveSeq) return;
-      const stored = JSON.stringify({ movies: live.movies, shows: live.shows, unwatched: live.unwatched });
-      const sent = JSON.stringify({ movies: body.movies, shows: body.shows, unwatched: body.unwatched });
+      // Legacy seasons are left out of the comparison: the owner's sheet has
+      // no row for one, so it always reads back without its rating. That is
+      // expected, not a failed save — the legacy store is what holds it.
+      const compare = (p) => JSON.stringify({
+        movies: p.movies,
+        shows: (p.shows || []).filter((e) => !LEGACY_META.has(e.t)),
+        unwatched: (p.unwatched || []).filter((t) => !LEGACY_META.has(t)),
+      });
+      const stored = compare(live), sent = compare(body);
       if (stored !== sent)
         console.warn("sheet sync: the sheet does not match the last save — edit may not have stuck");
     })
@@ -216,6 +258,7 @@ function saveEdits() {
 const GUESS_KEY = "marvelRankedGuesses.v2";
 let guesses = {};
 try { guesses = JSON.parse(localStorage.getItem(GUESS_KEY)) || {}; } catch {}
+legacyPromoted = guesses[LEGACY_STORE] ?? {};
 
 // Guesses sync on their own so a guess never drags a rankings pack along
 // with it — important when data.js is behind the sheet and the in-memory
@@ -269,8 +312,11 @@ function performUndo() {
   const now = snapshotState();
   const packOf = (s) => JSON.stringify([s.movies, s.shows, s.unwatched]);
   const packChanged = packOf(now) !== packOf(undoState);
-  applyPack(undoState);
+  // Guesses first: they carry the legacy store, which applyPack reads to
+  // decide which promoted seasons still belong in the pool.
   guesses = undoState.guesses;
+  legacyPromoted = guesses[LEGACY_STORE] ?? {};
+  applyPack(undoState);
   localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
   dismissUndo();
   if (packChanged) saveEdits();
@@ -350,9 +396,9 @@ function coverCard(item) {
       title="${item.title} — ${rated ? `${item.rating}/10` : "not ranked yet"}">
     ${media}
     <span class="name">${item.title}</span>
-    ${rated
+    ${item.action ?? (rated
       ? `<span class="score" style="background:${c.bg};color:${c.ink}">${item.rating}</span>`
-      : `<span class="score unknown">?</span>`}
+      : `<span class="score unknown">?</span>`)}
   </div>`;
 }
 
@@ -638,7 +684,7 @@ function renderRankings() {
       <div class="release-pane">
         ${releaseGallery([...movies, ...unrankedMovies.map((t) => MOVIE_META.get(t)).filter(Boolean)], "Movies")}
         <div class="section-gap"></div>
-        ${releaseGallery([...shows, ...unwatchedShows.map((t) => SHOW_META.get(t) ?? UNWATCHED_META.get(t)).filter(Boolean)], "Shows")}
+        ${releaseGallery([...shows, ...unwatchedShows.map(promotedShow)], "Shows")}
       </div>
       <div class="rank-pane">
         <div class="grid-2">
@@ -657,7 +703,7 @@ function renderRankings() {
           <div class="stack">
             <div class="panel"><h2>Shows ${avgChip(shows)}<button class="avgchip cardbtn" data-card="shows" title="make a shareable top-10 image">top 10 card</button>${shows.length ? `<button class="avgchip cardbtn" data-card="shows-all" title="make a shareable image of the whole ranked list">full list card</button>` : ""}<span class="note">${shows.length} ranked</span></h2>
               <div class="ranklist" data-kind="shows">${rankSeq(shows)}</div>
-              <h2 class="subheading">Haven't seen <span class="note">${unwatchedShows.length} shows · guesses don't count · drag up once watched</span></h2>
+              <h2 class="subheading">Haven't seen <span class="note">${unwatchedShows.length} shows · guesses don't count · drag up to rank</span></h2>
               <div class="unwatchedlist" data-kind="show-pool">${unwatchedShows.map((t) => `<div class="row drag" data-drag data-title="${t}">
                 <span class="rank">–</span>
                 <span class="cellbox${guesses[t] != null ? "" : " unwatched"}"${guesses[t] != null ? ` style="background:${ratingColor(guesses[t]).bg};color:${ratingColor(guesses[t]).ink}"` : ""}>
@@ -922,7 +968,7 @@ function openDetail(title) {
   const isMovie = MOVIE_META.has(title);
   const item = (isMovie ? movies : shows).find((x) => x.title === title);
   const meta = item ?? MOVIE_META.get(title) ?? SHOW_META.get(title) ?? UNWATCHED_META.get(title)
-    ?? LEGACY_SHOWS.find((l) => l.title === title);
+    ?? LEGACY_META.get(title);
   if (!meta) return;
 
   let status;
@@ -933,7 +979,7 @@ function openDetail(title) {
       <div class="rankline">#${item.rank} of ${list.length} ${isMovie ? "movies" : "shows"}</div>`;
   } else {
     const g = guesses[title];
-    const legacy = !isMovie && !ALL_SHOW_TITLES.has(title);
+    const legacy = LEGACY_META.has(title) && !unwatchedShows.includes(title);
     status = `<div class="bigscore unknown">?</div>
       <div class="rankline">${legacy ? "Legacy TV — not ranked" : "Not ranked yet"}${g != null ? ` · expecting a ${g}` : ""}</div>`;
   }
@@ -1458,25 +1504,75 @@ function renderVsSource(id) {
     btn.addEventListener("click", () => { vsSource = btn.dataset.src; renderVsSource(vsSource); }));
 }
 
-// The pre-Disney+ era, parked on its own page: no ratings, no effect on any
-// stats — the watchlist in release order, split by phase, until a decision
-// is made.
+// The pre-Disney+ era, parked on its own page: no ratings and no effect on
+// any stats until a season is added by hand. Watch one and "+ add" drops it
+// into the unranked show pool, where it behaves like any other show; the
+// card here then says so, and can put it back.
+const legacyState = (title) =>
+  shows.some((s) => s.title === title) ? "ranked"
+    : unwatchedShows.includes(title) ? "added" : "off";
+
+function addLegacy(title) {
+  if (!LEGACY_META.has(title) || legacyState(title) !== "off") return;
+  const snap = snapshotState();
+  // At the top of the pool rather than in release order: it was just added
+  // by hand, and the next thing to do is drag it into the list.
+  unwatchedShows = [title, ...unwatchedShows];
+  saveEdits();
+  offerUndo(snap);
+  renderLegacy();
+}
+
+function removeLegacy(title) {
+  const snap = snapshotState();
+  const at = shows.findIndex((s) => s.title === title);
+  if (at >= 0) {
+    shows.splice(at, 1);
+    shows.forEach((s, i) => (s.rank = i + 1));
+  }
+  unwatchedShows = unwatchedShows.filter((t) => t !== title);
+  saveEdits();
+  offerUndo(snap);
+  renderLegacy();
+  updateBalanceAlert();
+}
+
 function renderLegacy() {
   const phases = [...new Set(LEGACY_SHOWS.map((s) => s.phase))].filter((p) => p != null);
+  const added = LEGACY_SHOWS.filter((s) => legacyState(s.title) !== "off").length;
+  const action = (title) => {
+    const state = legacyState(title);
+    if (state === "off") {
+      return `<button class="legacybtn" data-add="${title}"
+        title="add it to the show rankings">+ add</button>`;
+    }
+    const item = shows.find((s) => s.title === title);
+    return `<button class="legacybtn on" data-remove="${title}"
+      title="take it back out of the show rankings">${item ? `#${item.rank}` : "added"} ✓</button>`;
+  };
   $("#view").innerHTML = `
     <div class="panel legacywrap">
       <h2>Legacy TV <span class="note">${LEGACY_SHOWS.length} seasons from the pre-Disney+ era —
-        parked here until they're watched &amp; ranked</span></h2>
+        separate from the rankings${added ? `, ${added} added so far` : ", until you add one"}</span></h2>
       ${phases.map((p) => {
         const entries = LEGACY_SHOWS.filter((s) => s.phase === p);
         return `
         <section class="phase-block">
           <h3 style="--phase:${PHASE_COLORS[p]}"><span class="dot"></span>Phase ${p}
             <span class="note">${entries.length} season${entries.length === 1 ? "" : "s"}</span></h3>
-          <div class="covers">${entries.map((s) => coverCard({ title: s.title, phase: p, rating: null })).join("")}</div>
+          <div class="covers">${entries.map((s) =>
+            coverCard({ title: s.title, phase: p, rating: null, action: action(s.title) })).join("")}</div>
         </section>`;
       }).join("")}
+      <p class="fineprint">Added seasons join the show pool on the Rankings tab — drag one up into
+        the list to score it. Nothing here counts toward any average until you do.</p>
     </div>`;
+  // The whole card opens the detail popup, so the button has to keep its
+  // click to itself.
+  $("#view").querySelectorAll("[data-add]").forEach((b) =>
+    b.addEventListener("click", (e) => { e.stopPropagation(); addLegacy(b.dataset.add); }));
+  $("#view").querySelectorAll("[data-remove]").forEach((b) =>
+    b.addEventListener("click", (e) => { e.stopPropagation(); removeLegacy(b.dataset.remove); }));
 }
 
 // Drag-to-rank picture lists: the Spider-Man, Heroes and Villains tabs are
@@ -1788,23 +1884,30 @@ if (syncOn) {
       // shows (offline edits if any, else the built-in baseline): seed the
       // server copy with it, guesses included.
       if (live.fresh) { saveEdits(); return; }
-      const packApplied = applyPack(live);
-      if (packApplied) {
-        localStorage.setItem(EDITS_KEY, JSON.stringify({
-          movies: live.movies, shows: live.shows, unwatched: live.unwatched,
-        }));
-      }
       // Server guesses win — EXCEPT when the server store is empty and this
       // device still has some: that's a device with un-migrated (or otherwise
       // unsaved) guesses, and they must seed the server, never be wiped by it.
+      // They are settled before the pack is applied: they carry the ratings
+      // of any promoted legacy season, which the pack needs to validate.
       const haveGuesses = live.guesses && typeof live.guesses === "object";
       if (haveGuesses) {
         if (Object.keys(live.guesses).length === 0 && Object.keys(guesses).length > 0) {
           pushGuesses();
         } else {
           guesses = live.guesses;
+          legacyPromoted = guesses[LEGACY_STORE] ?? {};
           localStorage.setItem(GUESS_KEY, JSON.stringify(guesses));
         }
+      }
+      const packApplied = applyPack(live);
+      if (packApplied) {
+        // Cache what was applied rather than what arrived: a promoted legacy
+        // season comes back from the sheet without its rating, and a cache
+        // holding that would fail to load on the next visit.
+        const cache = (xs) => [...xs].sort((a, b) => a.rank - b.rank).map((i) => ({ t: i.title, r: i.rating }));
+        localStorage.setItem(EDITS_KEY, JSON.stringify({
+          movies: cache(movies), shows: cache(shows), unwatched: [...unwatchedShows, ...unrankedMovies],
+        }));
       }
       if (packApplied || haveGuesses) {
         views[currentView]();

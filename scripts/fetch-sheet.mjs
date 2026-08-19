@@ -192,7 +192,7 @@ ${upcoming.map(name).join("\n")}
 // Pre-Disney+ era shows (release order), parked on their own page until
 // they get watched and ranked.
 const LEGACY_SHOWS = [
-${legacy.map((t) => `  { title: ${JSON.stringify(t)}, phase: ${meta[t]?.phase ?? null} },`).join("\n")}
+${legacy.map((t) => `  { title: ${JSON.stringify(t)}, phase: ${meta[t]?.phase ?? null}${meta[t]?.year != null ? `, year: ${meta[t].year}` : ""} },`).join("\n")}
 ];
 
 const FRANCHISES = [

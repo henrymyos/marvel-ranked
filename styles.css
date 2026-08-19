@@ -400,8 +400,21 @@ button.cardbtn:hover { color: var(--text-primary); }
 .vsscatter circle:not(.hit) { stroke: var(--surface); stroke-width: 2; }
 .vsscatter g:hover circle:not(.hit) { filter: brightness(1.15); }
 
-/* Legacy TV: unranked pre-Disney+ seasons grouped by series */
+/* Legacy TV: pre-Disney+ seasons grouped by phase, each with an add/remove
+   chip where a rated card would show its score */
 .legacywrap { max-width: 900px; margin: 0 auto; }
+.legacybtn {
+  flex-shrink: 0; margin-right: 8px; border-radius: 6px; cursor: pointer;
+  padding: 2px 9px; font: 700 12px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--track); color: var(--text-secondary);
+  border: 1px dashed var(--baseline);
+}
+.legacybtn:hover { color: var(--text-primary); border-color: var(--text-muted); }
+.legacybtn.on {
+  background: rgba(60, 187, 84, 0.16); color: #7fd992;
+  border: 1px solid rgba(60, 187, 84, 0.5);
+}
+.legacybtn.on:hover { color: #fff; border-color: #7fd992; }
 .phase-block h3 .note { font-weight: 400; color: var(--text-muted); }
 
 /* Hand-ranked rosters — Spider-Man, Heroes, Villains: group-colored picture

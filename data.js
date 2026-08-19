@@ -162,7 +162,7 @@ const LEGACY_SHOWS = [
   { title: "Agents of SHIELD Season 1", phase: 2 },
   { title: "Agents of SHIELD Season 2", phase: 2 },
   { title: "Agent Carter Season 1", phase: 2 },
-  { title: "Daredevil Season 1", phase: 2 },
+  { title: "Daredevil Season 1", phase: 2, year: 2015 },
   { title: "Agents of SHIELD Season 3", phase: 3 },
   { title: "Jessica Jones Season 1", phase: 3 },
   { title: "Agent Carter Season 2", phase: 3 },
