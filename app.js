@@ -39,11 +39,11 @@ localStorage.removeItem("marvelRankedEdits");
 localStorage.removeItem("marvelRankedGuesses");
 
 // Promoted legacy seasons ride in the guesses store: title -> rating, or
-// null while the season is still in the pool. The owner's rankings live in
-// the sheet cell by cell and the sheet has no row for a pre-Disney+ season,
-// so the rating would come back empty and the pool place would be lost on
-// the next load. The guesses store is saved and restored whole, so it can
-// carry what the sheet can't.
+// null while the season is still in the pool. The sheet keeps the legacy
+// block below its last rated row, and only that row's position tells it
+// what counts as unwatched — so it can't say which legacy seasons were
+// added by hand, and a pooled one has nothing to come back from. The
+// guesses store is saved and restored whole, so it carries that instead.
 const LEGACY_STORE = "__legacy";
 let legacyPromoted = {};
 
@@ -82,7 +82,12 @@ function applyPack(saved) {
     // reject every show ranking with it.
     const packedShows = saved.shows.map((e) =>
       e.r == null && Number.isInteger(legacyPromoted[e.t]) ? { ...e, r: legacyPromoted[e.t] } : e);
-    const packedUn = (Array.isArray(saved.unwatched) ? saved.unwatched : []).filter((t) => ALL_SHOW_TITLES.has(t));
+    // The sheet's unwatched list is every unrated row above the last rated
+    // one, and the legacy block sits at the bottom of the sheet — so ranking
+    // a legacy season drags every legacy row above it in as "unwatched". The
+    // legacy store, not the sheet, says which seasons were actually added.
+    const packedUn = (Array.isArray(saved.unwatched) ? saved.unwatched : [])
+      .filter((t) => ALL_SHOW_TITLES.has(t) && (!LEGACY_META.has(t) || t in legacyPromoted));
     const union = [...packedShows.map((e) => e.t), ...packedUn];
     if (new Set(union).size === union.length && union.every((t) => ALL_SHOW_TITLES.has(t)) &&
         packedShows.every((e) => Number.isInteger(e.r) && e.r >= 0 && e.r <= 10)) {
@@ -100,6 +105,15 @@ function applyPack(saved) {
   }
   return applied;
 }
+
+// Expected ratings for the Coming Up slate, also browser-local. Titles with
+// "Season" (plus known series) count as shows; everything else is a movie.
+// Loaded before the cached edits: applyPack reads the legacy store to decide
+// which legacy seasons belong in the pool.
+const GUESS_KEY = "marvelRankedGuesses.v2";
+let guesses = {};
+try { guesses = JSON.parse(localStorage.getItem(GUESS_KEY)) || {}; } catch {}
+legacyPromoted = guesses[LEGACY_STORE] ?? {};
 
 (function loadEdits() {
   try { applyPack(JSON.parse(localStorage.getItem(EDITS_KEY))); } catch {}
@@ -238,9 +252,9 @@ function saveEdits() {
     .then(() => fetchLive())
     .then((live) => {
       if (seq !== saveSeq) return;
-      // Legacy seasons are left out of the comparison: the owner's sheet has
-      // no row for one, so it always reads back without its rating. That is
-      // expected, not a failed save — the legacy store is what holds it.
+      // Legacy seasons are left out of the comparison: the sheet's unwatched
+      // list is derived from row positions, so it can disagree with the
+      // legacy store about them without the save having failed.
       const compare = (p) => JSON.stringify({
         movies: p.movies,
         shows: (p.shows || []).filter((e) => !LEGACY_META.has(e.t)),
@@ -252,13 +266,6 @@ function saveEdits() {
     })
     .catch((err) => console.warn("sheet sync: could not verify save —", err));
 }
-
-// Expected ratings for the Coming Up slate, also browser-local. Titles with
-// "Season" (plus known series) count as shows; everything else is a movie.
-const GUESS_KEY = "marvelRankedGuesses.v2";
-let guesses = {};
-try { guesses = JSON.parse(localStorage.getItem(GUESS_KEY)) || {}; } catch {}
-legacyPromoted = guesses[LEGACY_STORE] ?? {};
 
 // Guesses sync on their own so a guess never drags a rankings pack along
 // with it — important when data.js is behind the sheet and the in-memory
