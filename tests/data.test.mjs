@@ -2,7 +2,7 @@
 // warns about mismatches, so these fail loudly before a bad sync ships.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import vm from "node:vm";
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
@@ -48,4 +48,9 @@ test("every movie has IMDb and Rotten Tomatoes numbers", () => {
 test("every rated or unwatched show and movie has a cover", () => {
   for (const t of [...titles(d.MOVIES), ...titles(d.SHOWS), ...titles(d.UNWATCHED_SHOWS)])
     assert.ok(d.COVERS[t], `${t} missing from covers.js`);
+});
+
+test("every self-hosted cover file exists", () => {
+  for (const [t, src] of Object.entries(d.COVERS))
+    if (!/^https?:/.test(src)) assert.ok(existsSync(new URL(`../${src}`, import.meta.url)), `${t}: ${src} not found`);
 });
