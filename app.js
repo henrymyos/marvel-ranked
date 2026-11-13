@@ -611,7 +611,7 @@ function openGuessPop(btn) {
     const c = RATING_COLORS[r];
     return `<button class="opt${cur === r ? " sel" : ""}" data-r="${r}"
       style="background:${c.bg};color:${c.ink}">${r}</button>`;
-  }).join("") + `<button class="opt clear${cur == null ? " sel" : ""}">?</button>`;
+  }).join("") + `<button class="opt clear${cur == null ? " sel" : ""}" aria-label="Clear guess">?</button>`;
   guessPop.addEventListener("click", (e) => {
     const opt = e.target.closest(".opt");
     if (!opt) return;
