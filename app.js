@@ -393,7 +393,7 @@ const PHASE_COLORS = {
 };
 
 function coverCard(item) {
-  const src = COVERS[item.title];
+  const src = coverThumb(COVERS[item.title], 120);
   const media = src
     ? `<img src="${src}" alt="" loading="lazy" class="${src.includes("logo") ? "contain" : ""}">`
     : `<span class="noimg">${item.title.replace(/[^A-Z]/g, "").slice(0, 2) || item.title[0]}</span>`;
@@ -1109,7 +1109,7 @@ function runStrip(films) {
   const span = years.length && years[0] !== years[1] ? `${years[0]}–${years[1]}` : years[0] ?? "";
   return `<div class="runstrip">${films.map((m) => {
     const c = ratingColor(m.rating);
-    const src = COVERS[m.title];
+    const src = coverThumb(COVERS[m.title], 120);
     return `<figure title="${m.title} — ${m.rating}/10">
       ${src ? `<img src="${src}" alt="${m.title}" loading="lazy">`
         : `<span class="noimg">${m.title.replace(/[^A-Z]/g, "").slice(0, 2)}</span>`}
@@ -1138,7 +1138,7 @@ function gradingPanel() {
   const hottest = rated
     .map((m) => ({ m, delta: m.rating - IMDB[m.title].rating }))
     .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))[0];
-  const src = COVERS[hottest.m.title];
+  const src = coverThumb(COVERS[hottest.m.title], 120);
   const c = ratingColor(hottest.m.rating);
   return `
     <div class="panel">
@@ -1974,7 +1974,7 @@ updateBalanceAlert();
 renderDemoBanner();
 
 $("#hero-bg").innerHTML = byRelease([...MOVIE_META.values()])
-  .map((t) => COVERS[t])
+  .map((t) => coverThumb(COVERS[t], 250))
   .filter(Boolean)
   .map((src) => `<img src="${src}" alt="" loading="lazy">`)
   .join("");

@@ -103,3 +103,9 @@ const COVERS = {
   "Cloak & Dagger Season 1": "https://upload.wikimedia.org/wikipedia/en/2/28/Cloak_%26_Dagger_season_1_poster.jpg",
   "Cloak & Dagger Season 2": "https://upload.wikimedia.org/wikipedia/en/7/72/Cloak_%26_Dagger_season_2_poster.jpg"
 };
+
+// Thumbnail URL for small spots; written by scripts/fetch-covers.mjs.
+const coverThumb = (src, w) => src?.replace(
+  /^(https:\/\/upload\.wikimedia\.org\/wikipedia\/en)\/(\w\/\w\w)\/([^/]+)$/,
+  `$1/thumb/$2/$3/${w}px-$3`,
+);

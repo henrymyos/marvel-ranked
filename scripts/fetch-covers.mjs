@@ -161,9 +161,19 @@ for (const [key, wiki] of Object.entries(WIKI)) {
   else if (!covers[key]) missing.push(`${key} (${wiki})`);
 }
 
+// Small spots (board cards, hero collage, run strips) load a Wikimedia
+// thumbnail; share cards and the detail popup keep the full poster. Only
+// standard widths (120, 250, 330, 500…) work: others answer 400.
+const coverThumb = (src, w) => src?.replace(
+  /^(https:\/\/upload\.wikimedia\.org\/wikipedia\/en)\/(\w\/\w\w)\/([^/]+)$/,
+  `$1/thumb/$2/$3/${w}px-$3`,
+);
+
 const out = "// Poster thumbnails hotlinked from Wikipedia (pageimages API).\n" +
   "// Regenerate with scripts/fetch-covers.mjs if titles change.\n" +
-  "const COVERS = " + JSON.stringify(covers, null, 2) + ";\n";
+  "const COVERS = " + JSON.stringify(covers, null, 2) + ";\n\n" +
+  "// Thumbnail URL for small spots; written by scripts/fetch-covers.mjs.\n" +
+  "const coverThumb = " + coverThumb + ";\n";
 writeFileSync(process.argv[2] ?? "covers.js", out);
 console.log(`ok: ${Object.keys(covers).length}/${Object.keys(WIKI).length}`);
 if (missing.length) console.log("MISSING:\n  " + missing.join("\n  "));
