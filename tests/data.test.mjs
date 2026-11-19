@@ -54,3 +54,14 @@ test("every self-hosted cover file exists", () => {
   for (const [t, src] of Object.entries(d.COVERS))
     if (!/^https?:/.test(src)) assert.ok(existsSync(new URL(`../${src}`, import.meta.url)), `${t}: ${src} not found`);
 });
+
+test("coverThumb maps Wikipedia posters to a standard-width thumbnail, others untouched", () => {
+  const coverThumb = vm.runInNewContext(read("covers.js") + ";coverThumb");
+  assert.equal(
+    coverThumb("https://upload.wikimedia.org/wikipedia/en/0/0d/Avengers_Endgame_poster.jpg", 120),
+    "https://upload.wikimedia.org/wikipedia/en/thumb/0/0d/Avengers_Endgame_poster.jpg/120px-Avengers_Endgame_poster.jpg",
+  );
+  const other = "https://m.media-amazon.com/images/M/x._V1_UX400_.jpg";
+  assert.equal(coverThumb(other, 120), other);
+  assert.equal(coverThumb(undefined, 120), undefined);
+});
