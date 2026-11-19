@@ -1873,7 +1873,7 @@ let currentView = "rankings";
 document.querySelector("nav.tabs").addEventListener("click", (e) => {
   const btn = e.target.closest("button[data-view]");
   if (!btn) return;
-  document.querySelectorAll("nav.tabs button").forEach((b) => b.classList.toggle("active", b === btn));
+  document.querySelectorAll("nav.tabs button").forEach((b) => { b.classList.toggle("active", b === btn); b.setAttribute("aria-pressed", b === btn); });
   currentView = btn.dataset.view;
   views[currentView]();
 });
