@@ -93,19 +93,28 @@ const E = D + 1;
 const prevSrc = readFileSync(DATA_PATH, "utf8");
 const old = new Function(`${prevSrc}; return { MOVIES, SHOWS, UNWATCHED_SHOWS, LEGACY_SHOWS };`)();
 const oldLegacySet = new Set((old.LEGACY_SHOWS ?? []).map((e) => (typeof e === "object" ? e.title : e)));
+// Same idea for released-but-unwatched shows: one that came out after the last
+// rated row can't be told from an announced title by position, so data.js
+// membership keeps it unwatched (move a title there by hand when it releases).
+const oldUnwatchedSet = new Set((old.UNWATCHED_SHOWS ?? []).map((e) => (typeof e === "object" ? e.title : e)));
+// Promoted legacy seasons stay in LEGACY_SHOWS, so they leave the show ranks too.
+const showRankOut = showRank.filter((t) => !oldLegacySet.has(t));
 
-// One walk down column A classifies everything. At or before the last rated
-// row: H-ranked = movie, K-ranked = show, unrated & unranked = unwatched
-// show. Below the last rated row: legacy TV (by the known set) or announced.
+// One walk down column A classifies everything. Legacy TV is always legacy
+// (a rated season was promoted on the site's Legacy TV tab, which tracks it
+// itself), so it never counts as the last rated row. At or before that row:
+// H-ranked = movie, K-ranked = show, unrated & unranked = unwatched show.
+// Below it: a known unwatched show, or announced.
 const colA = column(A);
-const lastRated = colA.findLast((c) => cell(c.row, B) !== "");
+const lastRated = colA.findLast((c) => cell(c.row, B) !== "" && !oldLegacySet.has(c.value));
 const movies = [], shows = [], unwatched = [], upcoming = [], legacy = [], strays = [];
 const seen = new Set(), dupes = [];
 for (const { row, value: title } of colA) {
   if (seen.has(title)) { dupes.push(title); continue; }
   seen.add(title);
+  if (oldLegacySet.has(title)) { legacy.push(title); continue; }
   if (row > lastRated.row) {
-    (oldLegacySet.has(title) ? legacy : upcoming).push(title);
+    (oldUnwatchedSet.has(title) ? unwatched : upcoming).push(title);
     continue;
   }
   const rating = cell(row, B);
@@ -147,7 +156,7 @@ if (missingMeta.length)
     missingMeta.map((e) => e.title).join("\n  "));
 if (strays.length)
   console.warn("Rated in column A but ranked nowhere:\n  " + strays.join("\n  "));
-for (const list of [[movies, movieRank], [shows, showRank]])
+for (const list of [[movies, movieRank], [shows, showRankOut]])
   for (const title of list[1])
     if (!list[0].some((e) => e.title === title))
       console.warn(`"${title}" is ranked but has no release-order rating`);
@@ -178,7 +187,7 @@ ${shows.map(withMeta).map(entry).join("\n")}
 ];
 
 const SHOW_RANK_ORDER = [
-${showRank.map(name).join("\n")}
+${showRankOut.map(name).join("\n")}
 ];
 
 const UNWATCHED_SHOWS = [
