@@ -37,7 +37,7 @@ node scripts/fetch-characters.mjs            # characters.js + art/characters/
 ## Tests
 
 ```sh
-node --test    # checks data.js after a sheet sync
+node --test    # checks data.js after a sheet sync, characters.js after fetch-characters
 ```
 
 `scripts/`, `tests/` and this README are kept out of the deploy by `.vercelignore`.

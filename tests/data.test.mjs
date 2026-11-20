@@ -2,7 +2,7 @@
 // warns about mismatches, so these fail loudly before a bad sync ships.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import vm from "node:vm";
 
 const read = (f) => readFileSync(new URL(`../${f}`, import.meta.url), "utf8");
@@ -64,4 +64,18 @@ test("coverThumb maps Wikipedia posters to a standard-width thumbnail, others un
   const other = "https://m.media-amazon.com/images/M/x._V1_UX400_.jpg";
   assert.equal(coverThumb(other, 120), other);
   assert.equal(coverThumb(undefined, 120), undefined);
+});
+
+test("characters: unique names, known groups, portrait files exist and none are orphaned", () => {
+  const c = JSON.parse(vm.runInNewContext(read("characters.js") +
+    ";JSON.stringify({ HERO_GROUPS, HEROES, VILLAIN_GROUPS, VILLAINS })"));
+  const all = [...c.HEROES, ...c.VILLAINS];
+  // CHARACTER_ART is keyed by name, so a repeated name would silently share one portrait.
+  assert.deepEqual(dupes(all.map((x) => x.name)), []);
+  for (const x of c.HEROES) assert.ok(c.HERO_GROUPS[x.group], `${x.name}: unknown hero group ${x.group}`);
+  for (const x of c.VILLAINS) assert.ok(c.VILLAIN_GROUPS[x.group], `${x.name}: unknown villain group ${x.group}`);
+  for (const x of all) assert.ok(existsSync(new URL(`../${x.img}`, import.meta.url)), `${x.name}: ${x.img} not found`);
+  const used = new Set(all.map((x) => x.img.split("/").pop()));
+  const files = readdirSync(new URL("../art/characters/", import.meta.url)).filter((f) => !f.startsWith("."));
+  assert.deepEqual(files.filter((f) => !used.has(f)), [], "portraits no character uses");
 });
