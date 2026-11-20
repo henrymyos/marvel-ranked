@@ -9,7 +9,7 @@
       --headless=new --disable-gpu --hide-scrollbars --virtual-time-budget=20000 \
       --window-size=1200,630 --screenshot=/tmp/og.png \
       file://$PWD/scripts/og-card.html
-    sips -s format jpeg -s formatOptions 80 /tmp/og.png --out og-preview.jpg
+    cjpeg -quality 82 -progressive -optimize -outfile og-preview.jpg /tmp/og.png
 
   The ten titles come from the same IMDb-ranked list the site seeds a
   first-time visitor's board with, so the picture always matches what they

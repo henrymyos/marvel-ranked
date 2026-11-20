@@ -332,7 +332,7 @@ function performUndo() {
   updateBalanceAlert();
 }
 
-const UPCOMING_SHOW_HINTS = ["VisionQuest"];
+const UPCOMING_SHOW_HINTS = [];
 const isUpcomingShow = (t) => /season\b/i.test(t) || UPCOMING_SHOW_HINTS.includes(t);
 
 // One distinct color per rating value, warm to cool: reds and yellows for
@@ -638,7 +638,7 @@ document.addEventListener("pointerdown", (e) => {
 document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeGuessPop(); });
 
 function comingUpPanel(titles, kind) {
-  return `<div class="panel"><h2>Coming up <span class="note">${titles.length} ${kind} · pick an expected rating</span></h2>
+  return `<div class="panel"><h2>Coming up <span class="note">${titles.length} ${titles.length === 1 ? kind.slice(0, -1) : kind} · pick an expected rating</span></h2>
     ${titles.map(guessRow).join("")}
   </div>`;
 }

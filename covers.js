@@ -74,6 +74,7 @@ const COVERS = {
   "Eyes of Wakanda": "art/eyes-of-wakanda.webp",
   "Marvel Zombies": "art/marvel-zombies.webp",
   "The Punisher: One Last Kill": "art/punisher-one-last-kill.webp",
+  "VisionQuest": "art/visionquest.webp",
   "Agents of SHIELD Season 1": "https://upload.wikimedia.org/wikipedia/en/5/53/Agents_of_S.H.I.E.L.D._season_1_poster.jpeg",
   "Agents of SHIELD Season 2": "https://upload.wikimedia.org/wikipedia/en/5/5e/Agents_of_S.H.I.E.L.D._season_2_poster.jpg",
   "Agents of SHIELD Season 3": "https://upload.wikimedia.org/wikipedia/en/b/ba/Agents_of_S.H.I.E.L.D._season_3_poster.jpg",
