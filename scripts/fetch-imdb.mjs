@@ -18,7 +18,7 @@ async function resolve(title, year) {
   if (OVERRIDES[title]) return OVERRIDES[title];
   const q = title.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
   const url = `https://v2.sg.media-imdb.com/suggestion/${q[0]}/${encodeURIComponent(q)}.json`;
-  const res = await fetch(url, { headers: { "User-Agent": "marvel-ranked-static-site/1.0" } });
+  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
   if (!res.ok) return null;
   const { d = [] } = await res.json();
   const hit = d.find((e) => e.qid === "movie" && Math.abs((e.y ?? 0) - year) <= 1) ??

@@ -1,7 +1,7 @@
 // Rotten Tomatoes scores scraped from each movie page's scorecard JSON.
 // critics = Tomatometer %, audience = Popcornmeter %.
 // Regenerate with scripts/fetch-rt.mjs.
-const RT_SNAPSHOT = "2026-08-05";
+const RT_SNAPSHOT = "2026-11-20";
 const RT = {
   "Iron Man": {
     "critics": 94,
@@ -110,7 +110,7 @@ const RT = {
   },
   "Avengers: Endgame": {
     "critics": 94,
-    "audience": 90,
+    "audience": 96,
     "slug": "avengers_endgame"
   },
   "Spider-Man: Far From Home": {
@@ -190,7 +190,7 @@ const RT = {
   },
   "Spider-Man: Brand New Day": {
     "critics": 90,
-    "audience": 98,
+    "audience": 97,
     "slug": "spider_man_brand_new_day"
   }
 };

@@ -28,8 +28,10 @@ async function fetchScores(slug) {
   const m = html.match(/<script[^>]*id="media-scorecard-json"[^>]*>(.*?)<\/script>/s);
   if (!m) return null;
   const card = JSON.parse(m[1]);
-  const critics = Number(card.criticsScore?.score);
-  const audience = Number(card.audienceScore?.score);
+  // RT renamed score (94) to scorePercent ("94%") in 2026; accept either.
+  const pct = (sc) => parseInt(sc?.score ?? sc?.scorePercent, 10);
+  const critics = pct(card.criticsScore);
+  const audience = pct(card.audienceScore);
   if (!Number.isFinite(critics)) return null;
   return { critics, audience: Number.isFinite(audience) ? audience : null, slug };
 }
