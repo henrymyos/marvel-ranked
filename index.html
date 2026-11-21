@@ -30,6 +30,9 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Marvel Ranked">
+  <!-- 88 of 91 covers come from here, but app.js only requests them after
+       every script has loaded; open the connection while the scripts download. -->
+  <link rel="preconnect" href="https://upload.wikimedia.org">
   <!-- The title font is only found after styles.css parses; preloading it
        starts the download in parallel. crossorigin: fonts load in CORS mode. -->
   <link rel="preload" href="fonts/oswald-latin.woff2" as="font" type="font/woff2" crossorigin>
