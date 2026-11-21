@@ -1973,11 +1973,22 @@ function updateBalanceAlert() {
 updateBalanceAlert();
 renderDemoBanner();
 
-$("#hero-bg").innerHTML = byRelease([...MOVIE_META.values()])
+// Only the rows the banner can show: loading="lazy" still fetches the rows
+// its overflow hides (they're inside the lazy-load distance), 20+ posters on a
+// phone. Add everything, drop rows starting past the box (+ slack for the tilt)
+// in the same task, before any fetch; re-run on resize so a wider screen fills.
+const heroCovers = byRelease([...MOVIE_META.values()])
   .map((t) => coverThumb(COVERS[t], 250))
-  .filter(Boolean)
-  .map((src) => `<img src="${src}" alt="" loading="lazy">`)
-  .join("");
+  .filter(Boolean);
+function fillHero() {
+  const bg = $("#hero-bg");
+  bg.insertAdjacentHTML("beforeend", heroCovers.slice(bg.children.length)
+    .map((src) => `<img src="${src}" alt="" loading="lazy">`).join(""));
+  const limit = bg.clientHeight + 40;
+  for (const img of [...bg.children]) if (img.offsetTop > limit) img.remove();
+}
+fillHero();
+addEventListener("resize", fillHero);
 
 // Account chip in the header. Signing in (or out) reloads: the whole app —
 // syncOn, the pulled pack, the guesses — keys off the account at boot.
