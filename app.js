@@ -1998,7 +1998,7 @@ const accountBox = $("#account");
 
 function showSignin() {
   accountBox.innerHTML = `<form id="signin-form">
-    <input id="signin-name" maxlength="24" placeholder="username" autocomplete="username"
+    <input id="signin-name" aria-label="Username" maxlength="24" placeholder="username" autocomplete="username"
       spellcheck="false" title="letters, numbers, spaces, - and _">
     <button>Sign in</button>
   </form>`;
