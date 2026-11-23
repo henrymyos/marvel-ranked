@@ -653,7 +653,29 @@ function showcaseCell(item) {
     ${src ? `<img src="${src}" alt="${item.title}">`
       : `<span class="noimg">${item.title.replace(/[^A-Z]/g, "").slice(0, 2) || item.title[0]}</span>`}
     <span class="badge">${item.rank}</span>
+    <figcaption aria-hidden="true">${item.title}${item.year ? `<span>${item.year}</span>` : ""}</figcaption>
   </figure>`;
+}
+
+// Desktop only (CSS hides it under 1024 px): the numbers behind the board,
+// all counted from the loaded lists, never made up.
+function showcaseSide() {
+  const tile = (n, label) => `<div class="sc-stat"><span class="sc-num">${n}</span><span class="sc-label">${label}</span></div>`;
+  const next = UPCOMING.slice(0, 4);
+  return `<aside class="showcase-side" aria-label="By the numbers">
+    <div class="sc-card">
+      <p class="sc-head">By the numbers</p>
+      <div class="sc-stats">
+        ${tile(movies.length + shows.length, "Ranked")}${tile(unrankedMovies.length + unwatchedShows.length, "Waiting to rank")}
+        ${tile(movies.length + shows.length + unrankedMovies.length + unwatchedShows.length, "Out so far")}${tile(UPCOMING.length, "Coming up")}
+      </div>
+      <button type="button" class="sc-link" id="showcase-stats">Stats &amp; phases →</button>
+    </div>
+    ${next.length ? `<div class="sc-card">
+      <p class="sc-head">Coming up next</p>
+      <ol class="sc-next">${next.map((t) => `<li>${t}</li>`).join("")}</ol>
+    </div>` : ""}
+  </aside>`;
 }
 
 function renderShowcase() {
@@ -665,11 +687,15 @@ function renderShowcase() {
     <div class="showcase">
       <p class="showcase-sub">MY TOP 10 MOVIES</p>
       <div class="showcase-podium">${cell(2)}${cell(1)}${cell(3)}</div>
-      <div class="showcase-row">${[4, 5, 6, 7].map(cell).join("")}</div>
-      <div class="showcase-row">${[8, 9, 10].map(cell).join("")}</div>
+      ${showcaseSide()}
+      <div class="showcase-row">${[4, 5, 6, 7, 8, 9, 10].map(cell).join("")}</div>
       <div class="showcase-cta"><button id="showcase-start">Make your own</button></div>
     </div>`;
   $("#showcase-start").addEventListener("click", leaveShowcase);
+  $("#showcase-stats").addEventListener("click", () => {
+    leaveShowcase();
+    document.querySelector('nav.tabs button[data-view="phases"]').click();
+  });
 }
 
 function leaveShowcase() {
