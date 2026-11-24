@@ -13,6 +13,7 @@ python3 -m http.server 8080    # then open http://localhost:8080
 | File | What it holds |
 |---|---|
 | `data.js` | Every title with rating, phase and year (synced from the Google Sheet) |
+| `releases.js` | Release dates for the Upcoming tab, kept by hand (official dates only, `null` = TBA) |
 | `covers.js` | Title -> poster URL |
 | `imdb.js`, `rt.js` | IMDb ratings and Rotten Tomatoes scores per movie |
 | `characters.js` | Hero and villain rosters, portraits in `art/characters/` |
