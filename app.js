@@ -640,8 +640,36 @@ document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeGuess
 function comingUpPanel(titles, kind) {
   return `<div class="panel"><h2>Coming up <span class="note">${titles.length} ${titles.length === 1 ? kind.slice(0, -1) : kind} · pick an expected rating</span></h2>
     ${titles.map(guessRow).join("")}
+    <button type="button" class="uplink" data-goto="upcoming">Release dates →</button>
   </div>`;
 }
+
+// Upcoming tab: every announced movie and show with its date, soonest first.
+// Dates come from releases.js (hand-kept, official only); nothing here is ranked.
+function renderUpcoming() {
+  const today = new Date().toLocaleDateString("en-CA");
+  const list = upcomingReleases(UPCOMING, today, isUpcomingShow);
+  $("#view").innerHTML = `
+    <div class="panel upwrap">
+      <h2>Upcoming <span class="note">${list.length} movies and shows, soonest first</span></h2>
+      <ol class="uplist">${list.map((r) => {
+        const count = releaseCountdown(r.date, today);
+        return `<li class="uprow">
+          <span class="uptitle">${r.title}</span>
+          <span class="uptype ${r.type}">${r.type === "show" ? "Show" : "Movie"}</span>
+          <span class="update${r.date ? "" : " tba"}">${releaseLabel(r.date)}</span>
+          <span class="upcount">${count ?? (r.date ? "" : "No date yet")}</span>
+        </li>`;
+      }).join("")}</ol>
+      <p class="fineprint">Official Marvel and Disney dates only, checked ${releaseLabel(RELEASES_CHECKED)}.
+        A year or month means only that window is announced. Movies are US theatrical dates, shows are Disney+ premieres.</p>
+    </div>`;
+}
+
+document.addEventListener("click", (e) => {
+  const go = e.target.closest("[data-goto]");
+  if (go) document.querySelector(`nav.tabs button[data-view="${go.dataset.goto}"]`)?.click();
+});
 
 // First visit lands on the picture people actually share: the top 10 as
 // covers alone, in the podium the "top 10 card" draws — #1 big in the middle,
@@ -1892,6 +1920,7 @@ const views = {
   heroes: renderHeroes,
   villains: renderVillains,
   legacy: renderLegacy,
+  upcoming: renderUpcoming,
 };
 
 let currentView = "rankings";
