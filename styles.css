@@ -228,7 +228,7 @@ button.guess {
   align-items: center; padding: 3px 0 1px;
 }
 .tierrow .tierline { display: flex; align-items: center; gap: 8px; }
-.tierrow .tierline b { font-size: 11px; color: var(--c); }
+.tierrow .tierline b { font-size: 12px; color: var(--c); }
 .tierrow .tierline::before, .tierrow .tierline::after {
   content: ""; height: 2px; border-radius: 1px; background: var(--c); opacity: 0.5; flex: 1;
 }
@@ -274,7 +274,7 @@ button.cardbtn:hover { color: var(--text-primary); }
   font-weight: 700; color: #6b6b78;
 }
 .h2hname { font-size: 13px; font-weight: 600; margin-top: 7px; padding: 0 6px; }
-.h2hsub { font-size: 11px; font-weight: 600; padding: 0 6px; }
+.h2hsub { font-size: 12px; font-weight: 600; padding: 0 6px; }
 .h2hskip {
   background: none; border: none; font: inherit; font-size: 12px;
   color: var(--text-muted); cursor: pointer; margin-top: 10px; text-decoration: underline;
@@ -325,7 +325,7 @@ button.cardbtn:hover { color: var(--text-primary); }
 }
 .runstrip .score {
   position: absolute; right: 3px; bottom: 3px; border-radius: 5px;
-  padding: 0 5px; font-size: 11px; font-weight: 700;
+  padding: 0 5px; font-size: 12px; font-weight: 700;
 }
 .runspan { margin-top: 6px; }
 /* Tied runs stack, so they need more air between them than inside one. */
@@ -348,7 +348,7 @@ button.cardbtn:hover { color: var(--text-primary); }
 .chart .yaxis { position: relative; width: 18px; height: var(--h); flex-shrink: 0; }
 .chart .yaxis span {
   position: absolute; right: 0; transform: translateY(-50%);
-  font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums;
+  font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums;
 }
 .chart .plotarea { position: relative; flex: 1; min-width: 0; }
 .chart .gridline { position: absolute; left: 0; right: 0; border-top: 1px solid var(--grid); }
@@ -360,6 +360,7 @@ button.cardbtn:hover { color: var(--text-primary); }
 .chart .colbar { height: var(--h); display: flex; align-items: flex-end; justify-content: center; }
 .chart .colbar i { display: block; width: 100%; max-width: 24px; border-radius: 4px 4px 0 0; }
 .chart .colwrap:hover i { filter: brightness(1.18); }
+/* .xl and .glabel stay 10 px: one year per 15 px column on a 390 px phone; 12 px clips them */
 .chart .xl { font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 4px; }
 .chart .glabel {
   display: flex; align-items: center; justify-content: center; gap: 5px;
@@ -435,7 +436,7 @@ button.cardbtn:hover { color: var(--text-primary); }
 .rosterrow .card .meta { flex: 1; min-width: 0; padding: 4px 0; }
 .rosterrow .card .name { display: block; white-space: normal; }
 .rosterrow .card .era {
-  display: block; font-size: 11px; font-weight: 600; color: var(--text-muted);
+  display: block; font-size: 12px; font-weight: 600; color: var(--text-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .rosterrow.dragging .card { outline: 2px dashed rgba(255, 255, 255, 0.55); }
@@ -561,8 +562,11 @@ body.showcase-on nav.tabs, body.showcase-on footer { display: none; }
 .seg { display: inline-flex; gap: 2px; margin-left: 8px; vertical-align: 2px; }
 .segbtn {
   border: 1px solid var(--border); background: none; color: var(--text-muted);
-  font: inherit; font-size: 11px; font-weight: 400; padding: 2px 8px; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 400; padding: 2px 8px; cursor: pointer;
+  position: relative;
 }
+/* 44 px tall hit area without changing the pill's look */
+.segbtn::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 .segbtn:first-child { border-radius: 999px 0 0 999px; }
 .segbtn:last-child { border-radius: 0 999px 999px 0; }
 .segbtn:hover { color: var(--text-secondary); }
