@@ -16,7 +16,7 @@ python3 -m http.server 8080    # then open http://localhost:8080
 | `releases.js` | Release dates for the Upcoming tab, kept by hand (official dates only, `null` = TBA) |
 | `covers.js` | Title -> poster URL |
 | `imdb.js`, `rt.js` | IMDb ratings and Rotten Tomatoes scores per movie |
-| `characters.js` | Hero and villain rosters, portraits in `art/characters/` |
+| `characters.js` | Hero and villain rosters, portraits in `art/characters/` (96 px roster thumbs in `art/characters/96/`) |
 | `sync.js` | Cross-device sync through the sheet's Apps Script web app; clear its `url` to make the site browser-local |
 | `art/` | Local poster art for titles without a usable Wikipedia image |
 

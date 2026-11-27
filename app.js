@@ -1670,7 +1670,7 @@ function renderRoster(cfg) {
         return `<div class="rosterrow" data-drag data-title="${key}">
           <span class="rank">${i + 1}</span>
           <div class="card" style="--phase:${e.color}">
-            ${e.img ? `<img src="${e.img}" alt="" loading="lazy">` : `<span class="noimg">${e.name.slice(0, 2).toUpperCase()}</span>`}
+            ${e.img ? `<img src="${e.thumb ?? e.img}" alt="" loading="lazy">` : `<span class="noimg">${e.name.slice(0, 2).toUpperCase()}</span>`}
             <span class="meta">
               <span class="name">${e.name}</span>
               <span class="era">${e.sub}</span>
@@ -1866,7 +1866,8 @@ function renderSpiderman() {
     h2hPrompt: "Better Spider-Man movie?",
     entries: SPIDERMAN_MOVIES.map((t) => {
       const [era, color] = SPIDER_ERAS[t];
-      return { key: t, name: t, sub: era, color, img: COVERS[t] };
+      // List cells are 42 px wide; full covers (up to 186 KB) stay for h2h and the card.
+      return { key: t, name: t, sub: era, color, img: COVERS[t], thumb: coverThumb(COVERS[t], 120) };
     }),
     heading: "Spider-Man, ranked",
     note: `all ${SPIDERMAN_MOVIES.length} movies, every era · drag to reorder`,
@@ -1877,11 +1878,15 @@ function renderSpiderman() {
   });
 }
 
+// 96 px copies for the 48 px roster cells; written by scripts/fetch-characters.mjs.
+const characterThumb = (img) => img.replace("art/characters/", "art/characters/96/");
+
 // The people, not the projects: every hero and every villain who has shown up
 // on screen, ranked by hand. Portraits and rosters live in characters.js.
 function characterEntries(roster, groups) {
   return roster.map((c) => ({
     key: c.name, name: c.name, sub: c.actor, color: groups[c.group] ?? "#8a8781", img: c.img,
+    thumb: characterThumb(c.img),
   }));
 }
 

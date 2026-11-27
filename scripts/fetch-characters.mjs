@@ -178,10 +178,15 @@ async function download(url, name) {
   const ext = EXT[res.headers.get("content-type")?.split(";")[0]] ?? "jpg";
   const file = `${OUT_DIR}/${slug(name)}.${ext}`;
   writeFileSync(file, Buffer.from(await res.arrayBuffer()));
+  // 96 px copy for the 48 px roster cells (app.js characterThumb).
+  const small = url.split("?")[0] + "/scale-to-width-down/96";
+  const thumb = await fetch(small, { headers: { "User-Agent": UA, "Accept": "image/webp,image/*" } });
+  if (!thumb.ok) throw new Error(`${thumb.status} ${small}`);
+  writeFileSync(`${OUT_DIR}/96/${slug(name)}.${ext}`, Buffer.from(await thumb.arrayBuffer()));
   return file;
 }
 
-mkdirSync(OUT_DIR, { recursive: true });
+mkdirSync(`${OUT_DIR}/96`, { recursive: true });
 const missing = [];
 
 async function build(rows) {
