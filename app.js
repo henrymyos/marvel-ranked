@@ -676,7 +676,9 @@ document.addEventListener("click", (e) => {
 // then rows of four and three. The working board is one click (or one tab)
 // away, and any way out of here is permanent for the session.
 function showcaseCell(item) {
-  const src = COVERS[item.title];
+  // 250 px thumb: the originals are only 220-260 px wide but up to 186 KB;
+  // the thumb is ~1/3 the bytes and the same URL the hero collage caches.
+  const src = coverThumb(COVERS[item.title], 250);
   return `<figure title="${item.title}">
     ${src ? `<img src="${src}" alt="${item.title}">`
       : `<span class="noimg">${item.title.replace(/[^A-Z]/g, "").slice(0, 2) || item.title[0]}</span>`}
