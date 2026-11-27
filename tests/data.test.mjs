@@ -76,6 +76,9 @@ test("characters: unique names, known groups, portrait files exist and none are 
   for (const x of c.VILLAINS) assert.ok(c.VILLAIN_GROUPS[x.group], `${x.name}: unknown villain group ${x.group}`);
   for (const x of all) assert.ok(existsSync(new URL(`../${x.img}`, import.meta.url)), `${x.name}: ${x.img} not found`);
   const used = new Set(all.map((x) => x.img.split("/").pop()));
-  const files = readdirSync(new URL("../art/characters/", import.meta.url)).filter((f) => !f.startsWith("."));
-  assert.deepEqual(files.filter((f) => !used.has(f)), [], "portraits no character uses");
+  const list = (dir) => readdirSync(new URL(`../art/characters/${dir}`, import.meta.url), { withFileTypes: true })
+    .filter((f) => f.isFile() && !f.name.startsWith(".")).map((f) => f.name);
+  assert.deepEqual(list("").filter((f) => !used.has(f)), [], "portraits no character uses");
+  // Roster cells load art/characters/96/<file>: one thumb per portrait, no strays.
+  assert.deepEqual(list("96").sort(), [...used].sort(), "96 px thumbs out of sync with portraits");
 });
