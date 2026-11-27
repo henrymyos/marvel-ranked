@@ -18,7 +18,7 @@ python3 -m http.server 8080    # then open http://localhost:8080
 | `imdb.js`, `rt.js` | IMDb ratings and Rotten Tomatoes scores per movie |
 | `characters.js` | Hero and villain rosters, portraits in `art/characters/` (96 px roster thumbs in `art/characters/96/`) |
 | `sync.js` | Cross-device sync through the sheet's Apps Script web app; clear its `url` to make the site browser-local |
-| `art/` | Local poster art for titles without a usable Wikipedia image |
+| `art/` | Local poster art for titles without a usable Wikipedia image, plus `art/120/` and `art/250/` thumbs (`cwebp -q 80 -resize <w> 0`) |
 
 ## Refresh the data
 

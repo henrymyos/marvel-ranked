@@ -64,6 +64,16 @@ test("coverThumb maps Wikipedia posters to a standard-width thumbnail, others un
   const other = "https://m.media-amazon.com/images/M/x._V1_UX400_.jpg";
   assert.equal(coverThumb(other, 120), other);
   assert.equal(coverThumb(undefined, 120), undefined);
+  assert.equal(coverThumb("art/echo.webp", 250), "art/250/echo.webp");
+});
+
+test("every self-hosted cover has the 120 and 250 px thumbs the app asks for", () => {
+  const coverThumb = vm.runInNewContext(read("covers.js") + ";coverThumb");
+  const local = Object.values(d.COVERS).filter((src) => src.startsWith("art/"));
+  assert.ok(local.length > 0);
+  for (const src of local) for (const w of [120, 250]) {
+    assert.ok(existsSync(new URL(`../${coverThumb(src, w)}`, import.meta.url)), `missing ${coverThumb(src, w)} (cwebp -q 80 -resize ${w} 0)`);
+  }
 });
 
 test("characters: unique names, known groups, portrait files exist and none are orphaned", () => {
