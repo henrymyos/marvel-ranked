@@ -172,11 +172,12 @@ for (const [key, wiki] of Object.entries(WIKI)) {
 
 // Small spots (board cards, hero collage, run strips) load a Wikimedia
 // thumbnail; share cards and the detail popup keep the full poster. Only
-// standard widths (120, 250, 330, 500…) work: others answer 400.
+// standard widths (120, 250, 330, 500…) work: others answer 400. Self-hosted
+// art/<x>.webp maps to art/<w>/<x>.webp; only 120 and 250 exist (data test).
 const coverThumb = (src, w) => src?.replace(
   /^(https:\/\/upload\.wikimedia\.org\/wikipedia\/en)\/(\w\/\w\w)\/([^/]+)$/,
   `$1/thumb/$2/$3/${w}px-$3`,
-);
+).replace(/^art\/([^/]+\.webp)$/, `art/${w}/$1`);
 
 const out = "// Poster thumbnails hotlinked from Wikipedia (pageimages API).\n" +
   "// Regenerate with scripts/fetch-covers.mjs if titles change.\n" +
