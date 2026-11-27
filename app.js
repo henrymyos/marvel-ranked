@@ -1760,7 +1760,7 @@ function openHeadToHead(cfg, order) {
         ${pair ? `<div class="h2h-pair">${[a, b].map((k) => {
           const e = byKey.get(k);
           return `<button class="h2hpick" data-key="${k}">
-            ${e.img ? `<img src="${e.img}" alt="">` : `<span class="noimg">${e.name.slice(0, 2).toUpperCase()}</span>`}
+            ${e.img ? `<img src="${e.h2h ?? e.img}" alt="">` : `<span class="noimg">${e.name.slice(0, 2).toUpperCase()}</span>`}
             <span class="h2hname">${e.name}</span>
             <span class="h2hsub" style="color:${e.color}">${e.sub}</span>
           </button>`;
@@ -1866,8 +1866,9 @@ function renderSpiderman() {
     h2hPrompt: "Better Spider-Man movie?",
     entries: SPIDERMAN_MOVIES.map((t) => {
       const [era, color] = SPIDER_ERAS[t];
-      // List cells are 42 px wide; full covers (up to 186 KB) stay for h2h and the card.
-      return { key: t, name: t, sub: era, color, img: COVERS[t], thumb: coverThumb(COVERS[t], 120) };
+      // List cells are 42 px wide (120 px thumb); h2h picks are <= 211 px wide (250 px thumb,
+      // same URL as the detail modal); full covers stay for the share card.
+      return { key: t, name: t, sub: era, color, img: COVERS[t], thumb: coverThumb(COVERS[t], 120), h2h: coverThumb(COVERS[t], 250) };
     }),
     heading: "Spider-Man, ranked",
     note: `all ${SPIDERMAN_MOVIES.length} movies, every era · drag to reorder`,
