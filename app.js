@@ -1052,7 +1052,7 @@ function openDetail(title) {
   if (isMovie && IMDB[title]) facts.push(`IMDb ${IMDB[title].rating} · ${IMDB[title].votes.toLocaleString()} votes`);
   if (isMovie && RT[title]) facts.push(`Tomatometer ${RT[title].critics}% · audience ${RT[title].audience}%`);
 
-  const src = COVERS[title];
+  const src = coverThumb(COVERS[title], 250); // shown at <= 210 px; same URL as the showcase/hero
   const modal = document.createElement("div");
   modal.className = "share-modal";
   modal.innerHTML = `<div class="share-box detail-box">
