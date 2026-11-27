@@ -109,4 +109,5 @@ const COVERS = {
 const coverThumb = (src, w) => src?.replace(
   /^(https:\/\/upload\.wikimedia\.org\/wikipedia\/en)\/(\w\/\w\w)\/([^/]+)$/,
   `$1/thumb/$2/$3/${w}px-$3`,
-).replace(/^art\/([^/]+\.webp)$/, `art/${w}/$1`);
+).replace(/^art\/([^/]+\.webp)$/, `art/${w}/$1`)
+  .replace(/^(https:\/\/m\.media-amazon\.com\/.+_UX)\d+(_\.jpg)$/, `$1${w}$2`);
