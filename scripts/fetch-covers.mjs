@@ -174,12 +174,14 @@ for (const [key, wiki] of Object.entries(WIKI)) {
 // thumbnail; share cards and the detail popup keep the full poster. Only
 // standard widths (120, 250, 330, 500…) work: others answer 400. Self-hosted
 // art/<x>.webp maps to art/<w>/<x>.webp; only 120 and 250 exist (data test).
-// IMDb posters resize to any width via their _UX<w>_ suffix.
+// IMDb posters resize to any width via their _UX<w>_ suffix, Shopify CDN
+// images via their _<w>x suffix.
 const coverThumb = (src, w) => src?.replace(
   /^(https:\/\/upload\.wikimedia\.org\/wikipedia\/en)\/(\w\/\w\w)\/([^/]+)$/,
   `$1/thumb/$2/$3/${w}px-$3`,
 ).replace(/^art\/([^/]+\.webp)$/, `art/${w}/$1`)
-  .replace(/^(https:\/\/m\.media-amazon\.com\/.+_UX)\d+(_\.jpg)$/, `$1${w}$2`);
+  .replace(/^(https:\/\/m\.media-amazon\.com\/.+_UX)\d+(_\.jpg)$/, `$1${w}$2`)
+  .replace(/^(https:\/\/[^/]+\/cdn\/shop\/.+_)\d+x(\.jpg)$/, `$1${w}x$2`);
 
 const out = "// Poster thumbnails hotlinked from Wikipedia (pageimages API).\n" +
   "// Regenerate with scripts/fetch-covers.mjs if titles change.\n" +
