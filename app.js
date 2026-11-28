@@ -399,7 +399,8 @@ function coverCard(item) {
     : `<span class="noimg">${item.title.replace(/[^A-Z]/g, "").slice(0, 2) || item.title[0]}</span>`;
   const rated = item.rating != null;
   const c = rated ? ratingColor(item.rating) : null;
-  return `<div class="card" data-detail="${item.title}" style="--phase:${PHASE_COLORS[item.phase] ?? "#8a8781"}"
+  // Cards with their own action button stay plain divs (no nested buttons).
+  return `<div class="card" data-detail="${item.title}"${item.action ? "" : ' role="button" tabindex="0"'} style="--phase:${PHASE_COLORS[item.phase] ?? "#8a8781"}"
       title="${item.title} — ${rated ? `${item.rating}/10` : "not ranked yet"}">
     ${media}
     <span class="name">${item.title}</span>
@@ -990,12 +991,23 @@ async function buildFullCard(items, subtitle) {
   return canvas;
 }
 
+// Popups announce themselves as modal dialogs to screen readers.
+function asDialog(modal, label) {
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.setAttribute("aria-label", label);
+}
+
 function openShareCard(items, subtitle, filename, limit = 10, full = false) {
   const modal = document.createElement("div");
   modal.className = "share-modal";
+  asDialog(modal, subtitle);
+  const close = () => { modal.remove(); document.removeEventListener("keydown", onKey); };
+  const onKey = (e) => { if (e.key === "Escape") close(); };
+  document.addEventListener("keydown", onKey);
   modal.innerHTML = `<div class="share-box"><p class="fineprint">Building your card…</p></div>`;
   document.body.appendChild(modal);
-  modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+  modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
   (full ? buildFullCard(items, subtitle) : buildShareCard(items, subtitle, limit)).then((canvas) => {
     const box = modal.querySelector(".share-box");
     let url;
@@ -1011,7 +1023,8 @@ function openShareCard(items, subtitle, filename, limit = 10, full = false) {
         <button class="chip" data-share>Share</button>
         <button class="chip" data-close>Close</button>
       </div>`;
-    box.querySelector("[data-close]").addEventListener("click", () => modal.remove());
+    box.querySelector("[data-close]").addEventListener("click", close);
+    box.querySelector("[data-close]").focus();
     const shareBtn = box.querySelector("[data-share]");
     if (navigator.canShare) {
       shareBtn.addEventListener("click", () => canvas.toBlob((blob) => {
@@ -1053,8 +1066,10 @@ function openDetail(title) {
   if (isMovie && RT[title]) facts.push(`Tomatometer ${RT[title].critics}% · audience ${RT[title].audience}%`);
 
   const src = coverThumb(COVERS[title], 250); // shown at <= 210 px; same URL as the showcase/hero
+  const opener = document.activeElement;
   const modal = document.createElement("div");
   modal.className = "share-modal";
+  asDialog(modal, title);
   modal.innerHTML = `<div class="share-box detail-box">
     ${src ? `<img class="detail-poster ${src.includes("logo") ? "contain" : ""}" src="${src}" alt="">` : ""}
     <h3>${title}</h3>
@@ -1063,16 +1078,23 @@ function openDetail(title) {
     <div class="share-actions"><button class="chip" data-close>Close</button></div>
   </div>`;
   document.body.appendChild(modal);
-  const close = () => { modal.remove(); document.removeEventListener("keydown", onKey); };
+  const close = () => { modal.remove(); document.removeEventListener("keydown", onKey); opener?.focus(); };
   const onKey = (e) => { if (e.key === "Escape") close(); };
   document.addEventListener("keydown", onKey);
   modal.addEventListener("click", (e) => { if (e.target === modal) close(); });
   modal.querySelector("[data-close]").addEventListener("click", close);
+  modal.querySelector("[data-close]").focus();
 }
 
 document.addEventListener("click", (e) => {
   const card = e.target.closest(".card[data-detail]");
   if (card) openDetail(card.dataset.detail);
+});
+document.addEventListener("keydown", (e) => {
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches?.(".card[role=button][data-detail]")) {
+    e.preventDefault();
+    openDetail(e.target.dataset.detail);
+  }
 });
 
 // Generic column chart: values are encoded by height; the rating color is a
@@ -1750,6 +1772,7 @@ function openHeadToHead(cfg, order) {
 
   const modal = document.createElement("div");
   modal.className = "share-modal h2h-modal";
+  asDialog(modal, cfg.h2hPrompt);
   document.body.appendChild(modal);
 
   function draw(flash = "") {
