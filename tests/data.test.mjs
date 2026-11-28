@@ -55,7 +55,7 @@ test("every self-hosted cover file exists", () => {
     if (!/^https?:/.test(src)) assert.ok(existsSync(new URL(`../${src}`, import.meta.url)), `${t}: ${src} not found`);
 });
 
-test("coverThumb maps Wikipedia posters and IMDb posters to a thumbnail, others untouched", () => {
+test("coverThumb maps Wikipedia, IMDb and Shopify posters to a thumbnail, others untouched", () => {
   const coverThumb = vm.runInNewContext(read("covers.js") + ";coverThumb");
   assert.equal(
     coverThumb("https://upload.wikimedia.org/wikipedia/en/0/0d/Avengers_Endgame_poster.jpg", 120),
@@ -64,6 +64,10 @@ test("coverThumb maps Wikipedia posters and IMDb posters to a thumbnail, others 
   assert.equal(
     coverThumb("https://m.media-amazon.com/images/M/x@._V1_FMjpg_UX400_.jpg", 120),
     "https://m.media-amazon.com/images/M/x@._V1_FMjpg_UX120_.jpg",
+  );
+  assert.equal(
+    coverThumb("https://allstarcomics.com.au/cdn/shop/files/STL373833_400x.jpg", 120),
+    "https://allstarcomics.com.au/cdn/shop/files/STL373833_120x.jpg",
   );
   const other = "https://example.org/poster.jpg";
   assert.equal(coverThumb(other, 120), other);
